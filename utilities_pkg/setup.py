@@ -8,10 +8,11 @@ with open("requirements.txt") as f:
 
 setup(
     name='photolibutils',
-    version='0.1.0',
+    version='0.2.0',
     packages=find_packages(),
     setup_requires=["wheel"],
     install_requires=required,
+    include_package_data=True,
     entry_points={
         "console_scripts": [
             "pwgo-virtualfs = pwgo_virtualfs.virtualfs:entry",

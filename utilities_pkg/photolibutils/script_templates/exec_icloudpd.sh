@@ -93,12 +93,8 @@ then
 fi
 
 cd $ICLOUDPD_VENV_PATH
-export LPASS_ASKPASS="<askpass script>"
 
-lpass login $LPASS_SERVICE_USER || { echo 'lastpass login failed' >&5; exit 1; }
-admin_pw=$(lpass show --password "$ADMIN_USER")
-user_pw=$(lpass show --json --expand-multi --basic-regex "$LPASS_ICLOUD_REGEX" | jq -cr ".[] | select(.username == \"${ICLOUD_USER}\") | .password")
-lpass logout --force
+LPASS_ASKPASS="<askpass script>" lpass login $LPASS_SERVICE_USER || { echo 'lastpass login failed' >&5; exit 1; }
 dl_dir="${DL_BASE_PATH}/${ICLOUD_USER}"
 
 mkdir -p "$dl_dir"
@@ -106,7 +102,7 @@ mkdir -p "$dl_dir"
 source "./bin/activate"
 
 exec 3<<<"$user_pw"
-exec 4<<<$(printf "$(cat $AUTH_DB_CFG)" "$admin_pw")
+exec 4<<<$(printf "$(cat $AUTH_DB_CFG)" '<(lpass show --password "$ADMIN_USER")')
 exec 6<<<$(printf "$(cat $TRACKING_DB_CFG)" "$admin_pw")
 
 dl_cmd_parts=(
@@ -117,14 +113,16 @@ dl_cmd_parts=(
   "\"$dl_dir\""
   "--username"
   "$ICLOUD_USER"
+  "--password"
+  '<(lpass show --json --expand-multi --basic-regex "$LPASS_ICLOUD_REGEX" | jq -cr ".[] | select(.username == \"${ICLOUD_USER}\") | .password")'
   "--skip-live-photos"
   "--folder-structure"
   "{:%Y/%m}"
   "--convert-heic"
   "--auth-msg-config"
-  "/proc/self/fd/4"
+  '<(printf "$(cat $AUTH_DB_CFG)" "<(lpass show --password \"$ADMIN_USER\")")'
   "--tracking-db-config"
-  "/proc/self/fd/6"
+  '<(printf "$(cat $TRACKING_DB_CFG)" "<(lpass show --password \"$ADMIN_USER\")")'
 )
 
 if [ -n "$MAX_ITEMS" ]; then
@@ -143,7 +141,6 @@ if [ -n "$DRY_RUN" ]; then
   exec_log="/dev/null"
 fi
 
-dl_cmd_parts+=("<&3")
 dl_cmd="${dl_cmd_parts[@]}"
 
 do_icloudpd() {
@@ -174,7 +171,6 @@ else
   bash -c "$invoke_cmd"
 fi
 
-deactivate
+lpass logout --force
 
-exec 3>&-
-exec 4>&-
+deactivate

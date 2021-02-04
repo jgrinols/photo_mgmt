@@ -9,18 +9,18 @@ PWGO_DB_CFG="<path to json config file for piwigo db>"
 PWGO_PATH="<path the piwigo galleries location>"
 DEST_PATH="<path to the virtual file structure>"
 
-export LPASS_ASKPASS="<askpass script>"
+if [ -z "$PS1" ]; then
+    CMD_OUTPUT=">> $LOG_PATH"
+else
+    CMD_OUTPUT="| tee -a $LOG_PATH"
+fi
 
-lpass login $LPASS_SERVICE_USER || { echo 'lastpass login failed'; exit 1; }
-exec 3<<<$(lpass show "$ADMIN_USER" --password)
-lpass logout --force
-
-exec 4<<<$(printf "$(cat $PWGO_DB_CFG)" "$(cat <&3)")
+LPASS_ASKPASS="<askpass script>" lpass login $LPASS_SERVICE_USER $CMD_OUTPUT || { echo 'lastpass login failed' $CMD_OUTPUT; exit 1; }
 
 cmd_parts=(
     "pwgo-virtualfs"
     "-db"
-    "/proc/self/fd/4"
+    '<(printf "$(cat $PWGO_DB_CFG)" "<(lpass show "$ADMIN_USER" --password)")'
     "--piwigo-root"
     $PWGO_PATH
     "-v"
@@ -33,8 +33,7 @@ cmd_parts=(
 )
 
 cmd="${cmd_parts[@]}"
-echo "executing command $cmd"
-eval $cmd
+echo "executing command $cmd" $CMD_OUTPUT
+eval $cmd $CMD_OUTPUT
 
-exec 3>&-
-exec 4>&-
+lpass logout --force
