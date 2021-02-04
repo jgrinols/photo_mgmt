@@ -8,7 +8,7 @@ with open("requirements.txt") as f:
 
 setup(
     name='photolibutils',
-    version='0.2.0',
+    version='0.2.1',
     packages=find_packages(),
     setup_requires=["wheel"],
     install_requires=required,
