@@ -7,7 +7,7 @@ with open("requirements.txt") as f:
     required.extend(f.readlines())
 
 setup(
-    name='com.grinols.photo-utils',
+    name='photolibutils',
     version='0.1.0',
     packages=find_packages(),
     setup_requires=["wheel"],
