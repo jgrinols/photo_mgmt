@@ -45,7 +45,8 @@ def main(prog_cfg):
             logger.debug(f"virt path: {virt_path}")
 
         virt_path.dirname().makedirs_p()
-        src_path.symlink(virt_path)
+        if ! virt_path.exists():
+            src_path.symlink(virt_path)
 
     if prog_cfg["monitor"]:
         monitor(prog_cfg)
@@ -85,7 +86,8 @@ def monitor(prog_cfg):
                     logger.debug(f"virt path: {virt_path}")
 
                 virt_path.dirname().makedirs_p()
-                src_path.symlink(virt_path)
+                if ! virt_path.exists():
+                    src_path.symlink(virt_path)
 
         if type(event) is DeleteRowsEvent:
             logger.debug("Received a delete event...processing...")
