@@ -20,19 +20,26 @@ LPASS_ASKPASS="<askpass script>" lpass login $LPASS_SERVICE_USER $CMD_OUTPUT || 
 cmd_parts=(
     "pwgo-virtualfs"
     "-db"
-    '<(printf "$(cat $PWGO_DB_CFG)" "<(lpass show "$ADMIN_USER" --password)")'
+    '<(printf "$(cat $PWGO_DB_CFG)" "$(lpass show $ADMIN_USER --password)")'
     "--piwigo-root"
-    $PWGO_PATH
+    '$PWGO_PATH'
     "-v"
-    $LOG_LVL
+    '$LOG_LVL'
     "--destination-path"
-    $DEST_PATH
+    '$DEST_PATH'
     "--rebuild"
     "--monitor"
     "--remove-empty-dirs"
 )
 
-cmd="${cmd_parts[@]}"
+raw_cmd="${cmd_parts[@]}"
+export PWGO_DB_CFG
+export ADMIN_USER
+export PWGO_PATH
+export LOG_LVL
+export DEST_PATH
+cmd=$(echo $raw_cmd | envsubst)
+
 echo "executing command $cmd" $CMD_OUTPUT
 eval $cmd $CMD_OUTPUT
 

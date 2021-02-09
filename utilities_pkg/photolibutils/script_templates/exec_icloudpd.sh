@@ -1,11 +1,12 @@
 #!/bin/bash
 
 BASEDIR=$(dirname "$0")
+cd $BASEDIR
+
 LOG_PATH="/var/log/icloudpd.log"
 LPASS_SERVICE_USER="<username>"
 ADMIN_USER="<username>"
 LPASS_ICLOUD_REGEX="<regex for locating icloud acct entries in lpass>"
-ICLOUDPD_VENV_PATH="<location of icloudpd virt env>"
 DL_BASE_PATH="<download location>"
 AUTH_DB_CFG="<path to json config file for auth msg db>"
 TRACKING_DB_CFG="<path to json config file for tracking db>"
@@ -92,27 +93,23 @@ then
   fi
 fi
 
-cd $ICLOUDPD_VENV_PATH
-
 LPASS_ASKPASS="<askpass script>" lpass login $LPASS_SERVICE_USER || { echo 'lastpass login failed' >&5; exit 1; }
 dl_dir="${DL_BASE_PATH}/${ICLOUD_USER}"
+auth_dir="./.icloudpd_auth"
 
 mkdir -p "$dl_dir"
+mkdir -p "$auth_dir"
 
-source "./bin/activate"
-
-exec 3<<<"$user_pw"
-exec 4<<<$(printf "$(cat $AUTH_DB_CFG)" '<(lpass show --password "$ADMIN_USER")')
-exec 6<<<$(printf "$(cat $TRACKING_DB_CFG)" "$admin_pw")
+source "./activate"
 
 dl_cmd_parts=(
   "icloudpd"
   "--cookie-directory"
-  "\"./.auth\""
+  '"$auth_dir"'
   "--directory"
-  "\"$dl_dir\""
+  '"$dl_dir"'
   "--username"
-  "$ICLOUD_USER"
+  '"$ICLOUD_USER"'
   "--password"
   '<(lpass show --json --expand-multi --basic-regex "$LPASS_ICLOUD_REGEX" | jq -cr ".[] | select(.username == \"${ICLOUD_USER}\") | .password")'
   "--skip-live-photos"
@@ -120,19 +117,19 @@ dl_cmd_parts=(
   "{:%Y/%m}"
   "--convert-heic"
   "--auth-msg-config"
-  '<(printf "$(cat $AUTH_DB_CFG)" "<(lpass show --password \"$ADMIN_USER\")")'
+  '<(printf "$(cat $AUTH_DB_CFG)" "$(lpass show --password $ADMIN_USER)")'
   "--tracking-db-config"
-  '<(printf "$(cat $TRACKING_DB_CFG)" "<(lpass show --password \"$ADMIN_USER\")")'
+  '<(printf "$(cat $TRACKING_DB_CFG)" "$(lpass show --password $ADMIN_USER)")'
 )
 
 if [ -n "$MAX_ITEMS" ]; then
   dl_cmd_parts+=("--recent")
-  dl_cmd_parts+=("$MAX_ITEMS")
+  dl_cmd_parts+=('"$MAX_ITEMS"')
 fi
 
 if [ -n "$UNTIL_FOUND" ]; then
   dl_cmd_parts+=("--until-found")
-  dl_cmd_parts+=("$UNTIL_FOUND")
+  dl_cmd_parts+=('"$UNTIL_FOUND"')
 fi
 
 if [ -n "$DRY_RUN" ]; then
@@ -143,17 +140,30 @@ fi
 
 dl_cmd="${dl_cmd_parts[@]}"
 
+export auth_dir
+export dl_dir
+export ICLOUD_USER
+export LPASS_ICLOUD_REGEX
+export AUTH_DB_CFG
+export ADMIN_USER
+export TRACKING_DB_CFG
+export MAX_ITEMS
+export UNTIL_FOUND
+export DRY_RUN
+
+subst_dl_cmd=$(echo $dl_cmd | envsubst)
+
 do_icloudpd() {
   (
     flock -n 9
     eval "$1" && printf "Finished execution at %s\n" "$(date)" && date +%Y-%m-%dT%H:%M:%S >> $exec_log || printf "icloudpd execution failure\n"
-    date +%y
   ) 9>"$BASEDIR/icloudpd.lock"
 }
 export -f do_icloudpd
 
 printf "Beginning icloudpd execution at %s\n" "$(date)" >&5
-invoke_cmd=$(printf "do_icloudpd '%s'" "$dl_cmd")
+echo -e "dl cmd:\n$subst_dl_cmd"
+invoke_cmd=$(printf "do_icloudpd '%s'" "$subst_dl_cmd")
 echo -e "invoke:\n$invoke_cmd"
 export invoke_cmd
 export exec_log
