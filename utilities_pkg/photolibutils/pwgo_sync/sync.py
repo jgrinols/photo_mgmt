@@ -2,6 +2,7 @@ import sys, time, logging, json
 import click
 import click_log
 import requests
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
@@ -16,6 +17,10 @@ class PiwigoSynchronizer(object):
         logger.info(f"Status: {response.status_code}, Duration: {duration}")
         if response.status_code == 504:
             logger.warn("Received status code 504. It appears the sync operation is taking longer than normal.")
+        else:
+            parsed_response = BeautifulSoup(response.text, "html.parser")
+            for item in parsed_response.select("li[class^=update_summary]"):
+                print(item.text)
         
     def sync_single(self):
         login_data = {}
@@ -52,7 +57,8 @@ class PiwigoSynchronizer(object):
         sync_response = session.post(self.cfg["base_url"] + "/admin.php?page=site_update&site=1", data=sync_data)
         time_end = time.time()
         session.close()
-        logger.info("Connection closed")       
+        logger.debug(sync_response.text)
+        logger.info("Connection closed")  
         
         return sync_response, (time_end - time_start)
 

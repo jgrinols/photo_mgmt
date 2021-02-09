@@ -4,3 +4,4 @@ pymysql>=0.6,<1.0.0
 mysql-replication>=0.22
 path
 requests
+beautifulsoup4
