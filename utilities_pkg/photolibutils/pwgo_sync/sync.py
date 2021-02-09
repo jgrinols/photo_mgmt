@@ -26,13 +26,14 @@ class PiwigoSynchronizer(object):
         login_data = {}
         login_data["method"] = "pwg.session.login"
         login_data["username"] = self.cfg["user"]
-        login_data["password"] = self.cfg["password"].readline()
+        login_data["password"] = self.cfg["password"].readline().rstrip()
 
         session = requests.Session()
         logger.info("Login: ...")
         login_response = session.post(self.cfg["base_url"] + "/ws.php?format=json", data=login_data)
+        logger.debug(login_response.text)
         resp_json = json.loads(login_response.text)
-        if not resp_json["result"]:
+        if not "result" in resp_json or not resp_json["result"]:
             logger.fatal(resp_json["message"])
             raise Exception("Login Failed!")
         logger.info(f"Login: OK")
