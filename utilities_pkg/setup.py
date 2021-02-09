@@ -8,7 +8,7 @@ with open("requirements.txt") as f:
 
 setup(
     name='photolibutils',
-    version='0.2.4',
+    version='0.3.0',
     packages=find_packages(),
     setup_requires=["wheel"],
     install_requires=required,
@@ -16,7 +16,8 @@ setup(
     entry_points={
         "console_scripts": [
             "pwgo-virtualfs = photolibutils.pwgo_virtualfs.virtualfs:entry",
-            "icloudpd = photolibutils.icloudpd.base:main"
+            "icloudpd = photolibutils.icloudpd.base:main",
+            "pwgo-sync = photolibutils.pwgo_sync.sync:entry"
         ]
     }
 )
