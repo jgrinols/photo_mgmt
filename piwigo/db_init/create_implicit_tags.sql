@@ -35,7 +35,7 @@ VALUES
 ;
 
 INSERT INTO piwigo.image_tag ( image_id, tag_id )
-SELECT it.image_id, imp.implied_tag_id 
+SELECT DISTINCT it.image_id, imp.implied_tag_id 
 FROM piwigo.image_tag it
 JOIN piwigo.implicit_tags imp
 ON imp.triggered_by_tag_id = it.tag_id
