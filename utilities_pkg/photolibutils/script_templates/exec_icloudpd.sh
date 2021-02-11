@@ -3,17 +3,19 @@
 BASEDIR=$(dirname "$0")
 cd $BASEDIR
 
-LOG_PATH="/var/log/icloudpd.log"
-LPASS_SERVICE_USER="<username>"
-ADMIN_USER="<username>"
-LPASS_ICLOUD_REGEX="<regex for locating icloud acct entries in lpass>"
-DL_BASE_PATH="<download location>"
-AUTH_DB_CFG="<path to json config file for auth msg db>"
-TRACKING_DB_CFG="<path to json config file for tracking db>"
+LOG_PATH="${LOG_PATH:-<default>}"
+LPASS_SERVICE_USER="${LPASS_SERVICE_USER:-<default>}"
+ADMIN_USER="${ADMIN_USER:-<default>}"
+LPASS_ICLOUD_REGEX="${LPASS_ICLOUD_REGEX:-<default>}"
+DL_BASE_PATH="${DL_BASE_PATH:-<default>}"
+AUTH_DB_CFG="${AUTH_DB_CFG:-<default>}"
+TRACKING_DB_CFG="${TRACKING_DB_CFG:-<default>}"
+LOG_LVL="${LOG_LVL:-<default>}"
+AUTH_DIR="${AUTH_DIR:-<default>}"
 
 if [ "$SSH_ORIGINAL_COMMAND" ]; then
   case "${SSH_ORIGINAL_COMMAND,,}" in
-    "<valid_user_1>" | "<valid_user_2>")
+    "<valid user 1>" | "<valid user 2>")
       ICLOUD_USER=${SSH_ORIGINAL_COMMAND,,}
       ;;
     *)
@@ -43,6 +45,10 @@ while (( "$#" )); do
         shift 2
       fi
       ;;
+    --pwgo-sync)
+      PWGO_SYNC=1
+      shift
+      ;;
     -d|--dry-run)
       DRY_RUN=1
       shift
@@ -64,9 +70,9 @@ done
 
 if [ "$SSH_ORIGINAL_COMMAND" ] && [ ! "$INTERACTIVE" ]
 then
-  exec 5>&1 &>>$LOG_PATH
+  exec 5>&2 &>>$LOG_PATH
 else
-  exec 5>&1
+  exec 5>&2
 fi
 
 exec_log="$BASEDIR/exec_log[$ICLOUD_USER]"
@@ -93,26 +99,24 @@ then
   fi
 fi
 
-LPASS_ASKPASS="<askpass script>" lpass login $LPASS_SERVICE_USER || { echo 'lastpass login failed' >&5; exit 1; }
+LPASS_ASKPASS="${LPASS_ASKPASS:-<default>}" lpass login $LPASS_SERVICE_USER || { echo 'lastpass login failed' >&5; exit 1; }
 dl_dir="${DL_BASE_PATH}/${ICLOUD_USER}"
-auth_dir="./.icloudpd_auth"
 
 mkdir -p "$dl_dir"
-mkdir -p "$auth_dir"
+mkdir -p "$AUTH_DIR"
 
 source "./activate"
 
 dl_cmd_parts=(
   "icloudpd"
   "--cookie-directory"
-  '"$auth_dir"'
+  '"$AUTH_DIR"'
   "--directory"
   '"$dl_dir"'
   "--username"
   '"$ICLOUD_USER"'
   "--password"
   '<(lpass show --json --expand-multi --basic-regex "$LPASS_ICLOUD_REGEX" | jq -cr ".[] | select(.username == \"${ICLOUD_USER}\") | .password")'
-  "--skip-live-photos"
   "--folder-structure"
   "{:%Y/%m}"
   "--convert-heic"
@@ -120,6 +124,8 @@ dl_cmd_parts=(
   '<(printf "$(cat $AUTH_DB_CFG)" "$(lpass show --password $ADMIN_USER)")'
   "--tracking-db-config"
   '<(printf "$(cat $TRACKING_DB_CFG)" "$(lpass show --password $ADMIN_USER)")'
+  "-v"
+  "$LOG_LVL"
 )
 
 if [ -n "$MAX_ITEMS" ]; then
@@ -150,21 +156,50 @@ export TRACKING_DB_CFG
 export MAX_ITEMS
 export UNTIL_FOUND
 export DRY_RUN
+export INTERACTIVE
 
 subst_dl_cmd=$(echo $dl_cmd | envsubst)
 
 do_icloudpd() {
   (
     flock -n 9
-    eval "$1" && printf "Finished execution at %s\n" "$(date)" && date +%Y-%m-%dT%H:%M:%S >> $exec_log || printf "icloudpd execution failure\n"
+    cmd_result=$(eval "$1") && cmd_cd=$?
+    lpass logout --force
+    echo "icloudpd result: $cmd_result"
+    echo "icloudpd exit code: $cmd_cd"
+    cnt=$(echo $cmd_result | jq '. | .downloads + .deletions')
+    echo "icloudpd action count: $cnt"
+    if [ $cmd_cd -eq 0 ]; then
+      printf "Finished execution at %s\n" "$(date)" && date +%Y-%m-%dT%H:%M:%S >> $exec_log
+      if [ $cnt -gt 0 ]; then
+        sync_cmd_parts=(
+          "./exec_pwgo_sync.sh"
+          "--user"
+          "$ICLOUD_USER"
+        )
+        if [ $INTERACTIVE ]; then
+          sync_cmd_parts+=("-i")
+        fi
+        if [ $DRY_RUN ]; then
+          sync_cmd_parts+=("--dry-run")
+        fi
+        sync_cmd="${sync_cmd_parts[@]}"
+        eval $sync_cmd
+      fi
+    else
+      printf "icloudpd execution failure\n" >&5
+    fi
+    set +x
   ) 9>"$BASEDIR/icloudpd.lock"
 }
 export -f do_icloudpd
 
 printf "Beginning icloudpd execution at %s\n" "$(date)" >&5
-echo -e "dl cmd:\n$subst_dl_cmd"
+#echo -e "raw_icloudpd_cmd:\n$dl_cmd"
+#echo -e "icloudpd_cmd:\n$subst_dl_cmd"
+#echo -e "login cmd:\n$subst_login_cmd"
 invoke_cmd=$(printf "do_icloudpd '%s'" "$subst_dl_cmd")
-echo -e "invoke:\n$invoke_cmd"
+#echo -e "invoke:\n$invoke_cmd"
 export invoke_cmd
 export exec_log
 
@@ -180,7 +215,5 @@ then
 else
   bash -c "$invoke_cmd"
 fi
-
-lpass logout --force
 
 deactivate
