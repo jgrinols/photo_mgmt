@@ -8,7 +8,7 @@ with open("requirements.txt") as f:
 
 setup(
     name='photolibutils',
-    version='0.3.7',
+    version='0.4.0',
     packages=find_packages(),
     setup_requires=["wheel"],
     install_requires=required,
@@ -17,7 +17,8 @@ setup(
         "console_scripts": [
             "pwgo-virtualfs = photolibutils.pwgo_virtualfs.virtualfs:entry",
             "icloudpd = photolibutils.icloudpd.base:main",
-            "pwgo-sync = photolibutils.pwgo_sync.sync:entry"
+            "pwgo-sync = photolibutils.pwgo_sync.sync:entry",
+            "pwgo-autotag = photolibutils.pwgo_auto_tagger.auto_tagger:entry"
         ]
     }
 )
