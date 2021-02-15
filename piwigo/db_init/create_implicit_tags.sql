@@ -7,6 +7,36 @@ CREATE TABLE piwigo.implicit_tags
 	PRIMARY KEY (implied_tag_id, triggered_by_tag_id)
 );
 
+CREATE OR REPLACE VIEW piwigo.expanded_implicit_tags
+AS
+WITH RECURSIVE expanded_imp_tags AS
+(
+	SELECT implied_tag_id
+		, triggered_by_tag_id
+		, triggered_by_tag_id AS org_triggered_by_tag_id
+		, 1 AS rnk
+	FROM piwigo.implicit_tags it
+	UNION ALL
+	SELECT it2.implied_tag_id
+		, it2.triggered_by_tag_id
+		, eit.org_triggered_by_tag_id
+		, rnk + 1 AS rnk
+	FROM expanded_imp_tags eit
+	JOIN piwigo.implicit_tags it2
+	ON it2.triggered_by_tag_id = eit.implied_tag_id	
+), ranked AS 
+(
+	SELECT implied_tag_id
+		, triggered_by_tag_id
+		, org_triggered_by_tag_id
+		, RANK() OVER(PARTITION BY implied_tag_id, triggered_by_tag_id ORDER BY rnk DESC) AS irnk
+	FROM expanded_imp_tags
+)
+SELECT implied_tag_id
+	, org_triggered_by_tag_id AS triggered_by_tag_id
+FROM ranked
+WHERE irnk = 1;
+
 SELECT @family := id FROM piwigo.tags WHERE `name` = 'family';
 SELECT @kids := id FROM piwigo.tags WHERE `name` = 'kids';
 SELECT @henry := id FROM piwigo.tags WHERE `name` = 'henry';
