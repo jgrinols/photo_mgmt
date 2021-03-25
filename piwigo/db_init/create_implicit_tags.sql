@@ -67,7 +67,7 @@ VALUES
 INSERT INTO piwigo.image_tag ( image_id, tag_id )
 SELECT DISTINCT it.image_id, imp.implied_tag_id 
 FROM piwigo.image_tag it
-JOIN piwigo.implicit_tags imp
+JOIN piwigo.expanded_implicit_tags imp
 ON imp.triggered_by_tag_id = it.tag_id
 LEFT JOIN piwigo.image_tag it2
 ON it2.image_id = it.image_id AND it2.tag_id = imp.implied_tag_id

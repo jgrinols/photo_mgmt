@@ -8,17 +8,25 @@ with open("requirements.txt") as f:
 
 setup(
     name='photolibutils',
-    version='0.4.1',
+    version='0.5.1',
     packages=find_packages(),
-    setup_requires=["wheel"],
+    setup_requires=['wheel'],
     install_requires=required,
+    extras_require={
+        'dev': [
+            'pylint',
+            'pytest',
+            'pytest-asyncio',
+            'imagehash'
+        ]
+    },
     include_package_data=True,
     entry_points={
         "console_scripts": [
             "pwgo-virtualfs = photolibutils.pwgo_virtualfs.virtualfs:entry",
             "icloudpd = photolibutils.icloudpd.base:main",
             "pwgo-sync = photolibutils.pwgo_sync.sync:entry",
-            "pwgo-autotag = photolibutils.pwgo_auto_tagger.auto_tagger:entry"
+            "pwgo-metadata-agent = photolibutils.pwgo_metadata_agent.metadata_agent:entry"
         ]
     }
 )

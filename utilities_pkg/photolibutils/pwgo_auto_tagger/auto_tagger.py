@@ -63,7 +63,7 @@ def main(prog_cfg):
         },
         server_id = 1,
         only_schemas = [prog_cfg["db"]["db"]],
-        only_tables = prog_cfg["db"]["tables"],
+        only_tables = ["image_tag"],
         only_events = [WriteRowsEvent],
         blocking = True,
         resume_stream = True
