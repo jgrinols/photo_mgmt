@@ -22,6 +22,14 @@ BEGIN
                 AND ic.image_id = new.image_id
                 AND ic.category_id = new.category_id;
 
+        INSERT INTO messaging.pwgo_message (message_type, `message`)
+        VALUES ('IMG_METADATA' , JSON_OBJECT(
+                'image_id', new.image_id
+                , 'table_name', 'image_category'
+                , 'table_primary_key', JSON_ARRAY(new.image_id, new.category_id)
+                , 'operation', 'INSERT'
+        ));
+
 END;$$
 
 CREATE OR REPLACE TRIGGER tr_aft_del_imagecategory
@@ -32,6 +40,14 @@ BEGIN
         FROM piwigo.image_virtual_paths
         WHERE image_id = old.image_id
                 AND category_id = old.category_id;
+
+        INSERT INTO messaging.pwgo_message (message_type, `message`)
+        VALUES ('IMG_METADATA' , JSON_OBJECT(
+                'image_id', old.image_id
+                , 'table_name', 'image_category'
+                , 'table_primary_key', JSON_ARRAY(old.image_id, old.category_id)
+                , 'operation', 'DELETE'
+        ));
 
 END;$$
 
