@@ -1,0 +1,60 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+    
+        {
+            "name": "Python: icloudpd",
+            "type": "python",
+            "request": "launch",
+            "stopOnEntry": true,
+            "program": "${workspaceFolder}/utilities_pkg/_venv/icloudpd.py",
+            "args": [
+                "--cookie-directory",
+                "${workspaceFolder}/utilities_pkg/_venv/_icloud-auth",
+                "--directory",
+                "${workspaceFolder}/utilities_pkg/_venv/test_dl",
+                "--username",
+                "justin.grinols@gmail.com",
+                "--password",
+                "${workspaceFolder}/utilities_pkg/_venv/icloud_pw",
+                "--folder-structure",
+                "{:%Y/%m}",
+                "--convert-heic",
+                "--auth-msg-config",
+                "${workspaceFolder}/utilities_pkg/_venv/auth_msg_cfg.json",
+                "--tracking-db-config",
+                "${workspaceFolder}/utilities_pkg/_venv/tracking_db_cfg.json",
+                "--recent",
+                "50",
+                "--until-found",
+                "10",
+                "--only-print-filenames"
+            ]
+        },
+        {
+            "name": "Python: pwgo-metadata-agent",
+            "type": "python",
+            "request": "launch",
+            "stopOnEntry": false,
+            "program": "${workspaceFolder}/utilities_pkg/_venv/bin/pwgo-metadata-agent",
+            "args": [
+                "--piwigo-galleries-host-path",
+                "ssh://piwigo_agent:grin7467@192.168.1.100:22/mass/piwigo/media",
+                "-db",
+                "${workspaceFolder}/utilities_pkg/_venv/mysql.json",
+                "-v",
+                "DEBUG",
+                "--rekognition-config",
+                "${workspaceFolder}/utilities_pkg/_venv/rekognition.json",
+                "--image-crop-save-path",
+                "${workspaceFolder}/utilities_pkg/_venv/test_dl",
+                "--workers",
+                "50",
+                "--debug"
+            ]
+        }
+    ]
+}
