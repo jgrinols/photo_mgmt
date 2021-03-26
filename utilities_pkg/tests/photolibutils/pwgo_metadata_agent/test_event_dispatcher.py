@@ -9,7 +9,7 @@ from pymysqlreplication.row_event import WriteRowsEvent
 
 from photolibutils.pwgo_metadata_agent.constants import Constants
 from photolibutils.pwgo_metadata_agent.event_dispatcher import EventDispatcher
-import photolibutils.pwgo_metadata_agent.image_tag_event_task as image_tag_event_task
+#import photolibutils.pwgo_metadata_agent.image_tag_event_task
 
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
@@ -43,13 +43,14 @@ class TestEventDispatcher:
         ]
 
     @pytest.mark.asyncio
-    @patch('photolibutils.pwgo_metadata_agent.image_tag_event_task.ImageTagEventTask')
+    @patch('photolibutils.pwgo_metadata_agent.event_dispatcher.ImageTagEventTask')
     @patch('pymysqlreplication.row_event.WriteRowsEvent',spec=WriteRowsEvent)
     async def test_queue_workers(self, mck_evt_cls, mck_img_tag_cls, mck_rows):
+        #with patch('photolibutils.pwgo_metadata_agent.event_dispatcher.ImageTagEventTask') as mck_img_tag_cls:
         type(mck_evt_cls.return_value).rows = PropertyMock(return_value=mck_rows)
         mck_img_tag_cls.return_value = "hi"
         mck_evt = mck_evt_cls()
-        mck_img_tag_task = image_tag_event_task.ImageTagEventTask(1, delay=1)
+        #mck_img_tag_task = photolibutils.pwgo_metadata_agent.image_tag_event_task.ImageTagEventTask(1, delay=1)
         queue = asyncio.Queue()
         worker_cnt = 3
         msg = json.loads(mck_evt.rows[0]["values"]["message"])

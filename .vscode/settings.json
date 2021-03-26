@@ -1,0 +1,12 @@
+{
+    "python.pythonPath": "utilities_pkg/.venv/bin/python3",
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true,
+    "python.testing.pytestArgs": [
+        "utilities_pkg"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.nosetestsEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "pythonTestExplorer.testFramework": "pytest"
+}
