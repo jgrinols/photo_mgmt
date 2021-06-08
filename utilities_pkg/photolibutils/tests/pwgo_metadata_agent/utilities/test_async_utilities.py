@@ -3,7 +3,7 @@ import asyncio
 
 import pytest
 
-from photolibutils.pwgo_metadata_agent import utilities
+from ....pwgo_metadata_agent import utilities
 
 class TestAsyncUtilities:
     """Tests for async helper functions in the utilities module"""

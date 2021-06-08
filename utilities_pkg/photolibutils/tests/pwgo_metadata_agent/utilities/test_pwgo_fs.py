@@ -4,7 +4,7 @@ from uuid import uuid4
 from pytest import fixture
 import fs
 
-from photolibutils.pwgo_metadata_agent import utilities
+from ....pwgo_metadata_agent import utilities
 
 class TestPiwigoFS:
     """Tests for utility functions relating to mapping of piwigo paths to """

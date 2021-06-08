@@ -1,0 +1,3 @@
+DROP DATABASE IF EXISTS `piwigo`;
+DROP DATABASE IF EXISTS `messaging`;
+DROP DATABASE IF EXISTS `rekognition`;
