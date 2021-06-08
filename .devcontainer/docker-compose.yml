@@ -1,0 +1,20 @@
+version: '3.7'
+
+services:
+    app:
+        build:
+            context: ..
+            dockerfile: .devcontainer/Dockerfile
+        volumes:
+            - ..:/workspace
+        user: vscode
+        command: sleep infinity
+
+    mariadb:
+        image: mariadb
+        ports:
+            - 3306:3306
+        environment:
+            MYSQL_ROOT_PASSWORD: vscode
+        command: mysqld --log-bin --binlog-format=ROW --server-id=1
+        restart: unless-stopped
