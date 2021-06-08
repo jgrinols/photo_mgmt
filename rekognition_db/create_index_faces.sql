@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS indexed_faces
+CREATE TABLE IF NOT EXISTS rekognition.indexed_faces
 (
 	face_id CHAR(36) NOT NULL,
 	image_id CHAR(36) NOT NULL,

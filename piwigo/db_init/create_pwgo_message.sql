@@ -5,4 +5,4 @@ CREATE TABLE IF NOT EXISTS messaging.pwgo_message
 	message_type VARCHAR(25) NOT NULL,
 	message JSON NOT NULL,
 	PRIMARY KEY (id)
-)
+);

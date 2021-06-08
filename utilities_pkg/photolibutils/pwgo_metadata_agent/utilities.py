@@ -1,22 +1,17 @@
 """Contains utility functions"""
-import uuid, json, asyncio, logging
-from io import BytesIO, IOBase, FileIO
+import uuid, asyncio, logging
+from io import BytesIO, FileIO
 from typing import Tuple, IO, Dict
 from json import JSONDecoder
-from contextlib import asynccontextmanager
 
-import click_log
-import aiomysql
-from aiomysql import Connection, DictCursor
 import fs
 from fs.mountfs import MountFS
 from path import Path
 from PIL import Image
 
-from photolibutils.pwgo_metadata_agent.constants import Constants
+from .constants import Constants
 
-logger = logging.getLogger(__name__)
-click_log.basic_config(logger)
+logger = logging.getLogger(Constants.LOGGER_NAME)
 
 Dimension = Tuple[int, int]
 Bounding = Dict[str, float]
@@ -97,46 +92,34 @@ def extract_json_objects(text, decoder=JSONDecoder()):
         except ValueError:
             pos = match + 1
 
-class DbConnectionPool():
-    """Provides a context manager compatible connection to the given database"""
-    def __init__(self, pool):
-        self.__pool = pool
+def parse_sql(filename):
+    data = open(filename, 'r').readlines()
+    stmts = []
+    delim = ';'
+    stmt = ''
 
-    @staticmethod
-    async def create(db_cfg_file):
-        """creates a new DbConnectionPool instance"""
-        with open(db_cfg_file) as cfg_file:
-            db_cfg = json.load(cfg_file)
-            return DbConnectionPool(await aiomysql.create_pool(host = db_cfg["host"]
-                , port = db_cfg["port"]
-                , user = db_cfg["user"]
-                , password = db_cfg["passwd"]
-                , db = "mysql"))
+    for lineno, line in enumerate(data):
+        if not line.strip():
+            continue
 
-    def __enter__(self):
-        return self
+        if line.startswith('--'):
+            continue
 
-    def __exit__(self, expt_type, expt_value, traceback):
-        self.__pool.close()
-        self.__pool.wait_closed()
+        if 'DELIMITER' in line:
+            delim = line.split()[1]
+            continue
 
-    @asynccontextmanager
-    async def acquire_dict_cursor(self, **kwargs) -> (DictCursor,Connection):
-        """Gets a dictionary cursor and its connection. [async, contextmanager]"""
-        conn = await self.__pool.acquire()
-        if "db" in kwargs:
-            await conn.select_db(kwargs["db"])
-        cur = await conn.cursor(DictCursor)
-        try:
-            yield (cur,conn)
+        if delim not in line:
+            stmt += line.replace(delim, ';')
+            continue
 
-        finally:
-            await cur.close()
-            self.__pool.release(conn)
-
-    def terminate(self):
-        """Immediately closes all connections associated with the pool"""
-        self.__pool.terminate()
+        if stmt:
+            stmt += line
+            stmts.append(stmt.strip().rstrip(delim))
+            stmt = ''
+        else:
+            stmts.append(line.strip().rstrip(delim))
+    return stmts
 
 class NoopTask:
     """Dummy task"""

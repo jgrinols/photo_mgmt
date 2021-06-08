@@ -6,6 +6,9 @@ with open("icloudpd_requirements.txt") as f:
 with open("requirements.txt") as f:
     required.extend(f.readlines())
 
+with open("dev_requirements.txt") as f:
+    dev_extras = f.readlines()
+
 setup(
     name='photolibutils',
     version='0.5.1',
@@ -13,12 +16,7 @@ setup(
     setup_requires=['wheel'],
     install_requires=required,
     extras_require={
-        'dev': [
-            'pylint',
-            'pytest',
-            'pytest-asyncio',
-            'imagehash'
-        ]
+        'dev': dev_extras
     },
     include_package_data=True,
     entry_points={

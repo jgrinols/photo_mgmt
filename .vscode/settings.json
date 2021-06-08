@@ -1,5 +1,5 @@
 {
-    "python.pythonPath": "utilities_pkg/.venv/bin/python3",
+    "python.pythonPath": "/usr/local/bin/python",
     "python.linting.pylintEnabled": true,
     "python.linting.enabled": true,
     "python.testing.pytestArgs": [
