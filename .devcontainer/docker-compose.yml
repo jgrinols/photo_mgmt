@@ -5,6 +5,7 @@ services:
         build:
             context: ..
             dockerfile: .devcontainer/Dockerfile
+        container_name: dev-env
         volumes:
             - ..:/workspace
         user: vscode
@@ -12,6 +13,7 @@ services:
 
     mariadb:
         image: mariadb
+        container_name: dev-db
         ports:
             - 3306:3306
         environment:
