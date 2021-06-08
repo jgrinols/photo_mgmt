@@ -1,0 +1,20 @@
+name: CI/CD
+
+on: [push]
+
+defaults:
+  run:
+    working-directory: .devcontainer
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: build containers
+        run: docker-compose up -d
+      - name: test utilities_pkg
+        run: docker exec -it pytest /workspace/utilities_pkg
+      - name: stop containers
+        run: docker-compose down
