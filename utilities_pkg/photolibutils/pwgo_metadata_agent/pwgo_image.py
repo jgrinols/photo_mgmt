@@ -1,19 +1,16 @@
 """container module for PiwigoImage"""
 from __future__ import annotations
 
-import logging, json, datetime
+import json, datetime, logging
 from io import IOBase
 from contextlib import contextmanager
 from typing import Dict
 
-import click_log
-from path import Path
+from . import utilities
+from .constants import Constants
+from .db_connection_pool import DbConnectionPool
 
-from photolibutils.pwgo_metadata_agent import utilities
-from photolibutils.pwgo_metadata_agent.constants import Constants
-
-logger = logging.getLogger(__name__)
-click_log.basic_config(logger)
+logger = logging.getLogger(Constants.LOGGER_NAME)
 
 class PiwigoImage:
     """Class which encapsulates the core attributes of an image in the Piwigo db."""
@@ -30,7 +27,7 @@ class PiwigoImage:
     async def create(img_id: int, load_metadata: bool = False) -> PiwigoImage:
         """Creates an instance from the given image id by looking up details in database"""
         logger.debug("looking up image details from db")
-        async with Constants.MYSQL_CONN_POOL.get().acquire_dict_cursor(db=Constants.PWGO_DB) as (cur,_):
+        async with DbConnectionPool.get().acquire_dict_cursor(db=Constants.PWGO_DB) as (cur,_):
             sql = """
                 SELECT file, path
                 FROM images
@@ -48,7 +45,7 @@ class PiwigoImage:
             }
 
         if load_metadata:
-            async with Constants.MYSQL_CONN_POOL.get().acquire_dict_cursor(db=Constants.PWGO_DB) as (cur,_):
+            async with DbConnectionPool.get().acquire_dict_cursor(db=Constants.PWGO_DB) as (cur,_):
                 sql = """
                     SELECT image_metadata
                     FROM image_metadata
@@ -92,18 +89,28 @@ class PiwigoImageMetadata:
             raw[required_fields[3]],
             '%Y-%m-%d %H:%M:%S'
         )
-        self.tags = list(set(raw[required_fields[4]]))
+        self._tags = list(dict.fromkeys(raw[required_fields[4]]))
+
+    @property
+    def tags(self) -> list[str]:
+        """returns a list of image tags"""
+        return self._tags
+
+    @tags.setter
+    def tags(self, value):
+        """sets the tags list from the deduplictad value provided."""
+        self._tags = list(dict.fromkeys(value))
 
     def get_iptc_dict(self):
         """returns the metadata as a dictonary with values mapped to iptc keys"""
         iptc_dict = {}
         if self.name:
-            iptc_dict["Iptc.Application2.ObjectName"] = self.name[ 0 : 63 ]
+            iptc_dict["Iptc.Application2.ObjectName"] = self.name[ 0 : 64 ]
         if self.comment:
-            iptc_dict["Iptc.Application2.Caption"] = self.comment[ 0 : 1999 ]
+            iptc_dict["Iptc.Application2.Caption"] = self.comment[ 0 : 2000 ]
         if self.author:
-            iptc_dict["Iptc.Application2.Caption"] = self.author[ 0 : 31 ]
+            iptc_dict["Iptc.Application2.Byline"] = self.author[ 0 : 32 ]
         if self.tags:
-            iptc_dict["Iptc.Application2.Keywords"] = list(set(self.tags))
+            iptc_dict["Iptc.Application2.Keywords"] = list(self.tags)
 
         return iptc_dict

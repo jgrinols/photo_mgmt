@@ -1,31 +1,29 @@
 """Container module for FileMetadataWriter"""
-from contextlib import contextmanager
-
 from pyexiv2 import ImageData
 
-from photolibutils.pwgo_metadata_agent.pwgo_image import PiwigoImage
+from .pwgo_image import PiwigoImage
 
 class FileMetadataWriter():
     """Synchronizes Piwigo image metadata from the database into exif/iptc fields in the physical file"""
     def __init__(self, img: PiwigoImage):
         self.image = img
         self._img_data = None
+        self._img_file = None
 
-    @contextmanager
-    def get_file_image_data(self) -> ImageData:
-        """Opens the image file and returns ImageData context manager"""
-        try:
-            with self.image.open_file(mode='r+') as img_file:
-                img_data = ImageData(img_file.read())
-                img_file.seek(0)
-                yield (img_data, img_file)
+    def __enter__(self):
+        self._img_file = self.image.open_file(mode='r+')
+        self._img_data = ImageData(self._img_file.read())
+        self._img_file.seek(0)
+        return self
 
-        finally:
-            if img_data:
-                img_data.close()
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self._img_data.close()
+        self._img_file.close()
 
     def write(self) -> None:
-        """Writes image metadata from Piwigo database to file"""
-        with self.get_file_image_data() as file_img_data:
-            file_img_data[0].modify_iptc(self.image.metadata.get_iptc_dict())
-            file_img_data[1].write(file_img_data[0].get_bytes())
+        """Writes image metadata from Piwigo database to file
+        usage:
+        with FileMetadataWriter(pwgo_img) as writer:
+            writer.write()"""
+        self._img_data.modify_iptc(self.image.metadata.get_iptc_dict())
+        self._img_file.write(self._img_data.get_bytes())

@@ -1,17 +1,15 @@
 """Container module for Rekognize class"""
 from __future__ import annotations
 
-import logging, json
+import json, logging
 from typing import Dict, List, IO
 
-import click_log
 from py_linq import Enumerable
 import aiobotocore
 
-from photolibutils.pwgo_metadata_agent.constants import Constants
+from .constants import Constants
 
-logger = logging.getLogger(__name__)
-click_log.basic_config(logger)
+logger = logging.getLogger(Constants.LOGGER_NAME)
 
 class RekognitionClient():
     """A wrapper class with static methods for exposing the Rekognition client api"""

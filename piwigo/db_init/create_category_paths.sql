@@ -9,9 +9,9 @@ WITH RECURSIVE cat_paths AS
         FROM piwigo.categories
         UNION ALL
         SELECT id
-                , pos + 1
-                , SUBSTRING(cats, CHAR_LENGTH(first_cat) + 2)
-                , SUBSTRING_INDEX(SUBSTRING(cats, CHAR_LENGTH(first_cat) + 2), ',', 1)
+                , pos + 1 AS pos
+                , SUBSTRING(cats, CHAR_LENGTH(first_cat) + 2) AS cats
+                , SUBSTRING_INDEX(SUBSTRING(cats, CHAR_LENGTH(first_cat) + 2), ',', 1) AS first_cat
         FROM cat_paths
         WHERE CHAR_LENGTH(cats) > CHAR_LENGTH(first_cat)
 )

@@ -12,7 +12,8 @@ BEGIN
             , 'operation', 'INSERT'
     ));
 
-END;$$
+END;
+$$
 
 CREATE OR REPLACE TRIGGER tr_upd_aft_tags
 AFTER UPDATE ON piwigo.tags
@@ -34,7 +35,8 @@ BEGIN
                 )
         ));
     END IF;
-END;$$
+END;
+$$
 
 CREATE OR REPLACE TRIGGER tr_del_aft_tags
 AFTER DELETE ON piwigo.tags
@@ -49,6 +51,7 @@ BEGIN
             , 'operation', 'DELETE'
     ));
 
-END;$$
+END;
+$$
 
 DELIMITER ;

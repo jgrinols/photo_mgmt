@@ -14,4 +14,4 @@ LEFT JOIN piwigo.image_tag it
 ON it.image_id = i.id
 LEFT JOIN piwigo.tags t
 ON t.id = it.tag_id
-GROUP BY i.id
+GROUP BY i.id;

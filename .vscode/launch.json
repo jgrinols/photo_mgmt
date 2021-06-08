@@ -4,7 +4,14 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-    
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
         {
             "name": "Python: icloudpd",
             "type": "python",
@@ -38,6 +45,7 @@
             "name": "Python: pwgo-metadata-agent",
             "type": "python",
             "request": "launch",
+            "justMyCode": false,
             "stopOnEntry": false,
             "program": "${workspaceFolder}/utilities_pkg/_venv/bin/pwgo-metadata-agent",
             "args": [
@@ -55,6 +63,12 @@
                 "50",
                 "--debug"
             ]
+        },
+        {
+            "name": "Python: debug tests",
+            "type": "python",
+            "request": "test",
+            "justMyCode": false
         }
     ]
 }

@@ -12,7 +12,8 @@ BEGIN
             , 'operation', 'INSERT'
     ));
 
-END;$$
+END;
+$$
 
 DELIMITER $$
 CREATE OR REPLACE TRIGGER tr_upd_aft_images
@@ -41,7 +42,8 @@ BEGIN
                 )
         ));
     END IF;
-END;$$
+END;
+$$
 
 CREATE OR REPLACE TRIGGER tr_del_aft_images
 AFTER DELETE ON piwigo.images

@@ -6,4 +6,4 @@ CREATE TABLE IF NOT EXISTS rekognition.processed_faces
 	matched_to_face_id CHAR(36) NULL,
 	PRIMARY KEY (piwigo_image_id, face_index),
 	FOREIGN KEY (matched_to_face_id) REFERENCES rekognition.indexed_faces(face_id)
-)
+);

@@ -1,10 +1,12 @@
 """container module for Constants"""
-import contextvars
+from pathlib import Path
 
-from path import Path
+from .db_connection_pool import DbConnectionPool
 
 class Constants():
     """Contains program constants, read-only, and configuration values"""
+    LOGGER_NAME = "metadata-agent"
+
     PWGO_GALLERY_VIRT_PATH = Path("/config/www/gallery")
     PWGO_DB = "piwigo"
     EVENT_TABLES = { "pwgo_message": {} }
@@ -18,20 +20,18 @@ class Constants():
     REKOGNITION_DB = "rekognition"
     MSG_DB = "messaging"
 
-    STOP_MSG = {
-        "target": "metadata_agent",
-        "text": "stop"
-    }
+    STOP_TIMEOUT = 10
 
     # set from command parameter--so not quite "constants"
     PWGO_GALLERIES_HOST_PATH = None
     REKOGNITION_CFG_FILE = None
     MYSQL_CFG_FILE = None
-    MYSQL_CONN_POOL = None
     Q_JOBS = False
     IMG_CROP_PATH = None
     DEBUG = False
     WORKERS_CNT = None
+    WORKER_ERR_LIMIT = None
+    DRY_RUN = False
 
     @staticmethod
     async def initialize_program_configs(**kwargs):
@@ -41,17 +41,15 @@ class Constants():
         Constants.MYSQL_CFG_FILE = kwargs["mysql_cfg_file"]
         Constants.IMG_CROP_PATH = kwargs["img_crop_path"]
         Constants.WORKERS_CNT = kwargs["worker_count"]
+        Constants.WORKER_ERR_LIMIT = kwargs["worker_error_limit"]
         Constants.DEBUG = kwargs["debug"]
-        # need to import here otherwise we create a circular dependency
-        #pylint: disable=import-outside-toplevel
-        from photolibutils.pwgo_metadata_agent.utilities import DbConnectionPool
-        Constants.MYSQL_CONN_POOL = contextvars.ContextVar("DB Connection Pool")
-        Constants.MYSQL_CONN_POOL.set(await DbConnectionPool.create(Constants.MYSQL_CFG_FILE))
-        await Constants.__set_face_index_categories()
+        Constants.DRY_RUN = kwargs["dry_run"]
+
+        await Constants._set_face_index_categories()
 
     @staticmethod
-    async def __set_face_index_categories():
-        async with Constants.MYSQL_CONN_POOL.get().acquire_dict_cursor(db=Constants.PWGO_DB) as (cur, _):
+    async def _set_face_index_categories():
+        async with DbConnectionPool.get().acquire_dict_cursor(db=Constants.PWGO_DB) as (cur, _):
             sql = """
                 SELECT c.id
                 FROM piwigo.categories c

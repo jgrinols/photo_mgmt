@@ -11,7 +11,8 @@ BEGIN
                 , 'operation', 'INSERT'
         ));
 
-END;$$
+END;
+$$
 
 CREATE OR REPLACE TRIGGER tr_aft_del_imagetag
 AFTER DELETE ON piwigo.image_tag
@@ -25,6 +26,7 @@ BEGIN
                 , 'operation', 'DELETE'
         ));
 
-END;$$
+END;
+$$
 
 DELIMITER ;

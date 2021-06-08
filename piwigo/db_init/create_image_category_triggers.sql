@@ -30,7 +30,8 @@ BEGIN
                 , 'operation', 'INSERT'
         ));
 
-END;$$
+END;
+$$
 
 CREATE OR REPLACE TRIGGER tr_aft_del_imagecategory
 AFTER DELETE ON piwigo.image_category
@@ -49,6 +50,7 @@ BEGIN
                 , 'operation', 'DELETE'
         ));
 
-END;$$
+END;
+$$
 
 DELIMITER ;
