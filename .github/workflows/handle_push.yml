@@ -18,6 +18,6 @@ jobs:
       - name: build containers
         run: docker-compose up -d
       - name: test utilities_pkg
-        run: docker exec -it pytest /workspace/utilities_pkg
+        run: docker exec -it app pytest /workspace/utilities_pkg
       - name: stop containers
         run: docker-compose down
