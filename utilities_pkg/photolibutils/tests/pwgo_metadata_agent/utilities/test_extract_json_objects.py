@@ -1,5 +1,5 @@
 """container module for TestExtractJsonObjects"""
-from photolibutils.pwgo_metadata_agent import utilities
+from ....pwgo_metadata_agent import utilities
 
 class TestExtractJsonObjects:
     """Tests for the utilities.extract_json_objects"""

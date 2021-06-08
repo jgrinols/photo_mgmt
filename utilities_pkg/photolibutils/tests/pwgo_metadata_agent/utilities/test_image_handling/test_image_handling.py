@@ -5,7 +5,7 @@ import pytest
 from PIL import Image
 import imagehash
 
-from photolibutils.pwgo_metadata_agent import utilities
+from .....pwgo_metadata_agent import utilities
 
 MODULE_PATH = os.path.dirname(os.path.abspath(__file__))
 
