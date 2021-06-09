@@ -22,11 +22,11 @@ jobs:
       - name: build containers
         run: docker-compose up -d
 
-      - run: sleep 5 && docker ps
+      #- run: sleep 5 && docker ps
       
-      #- name: wait for mariadb
-      #  run: while ! mysqladmin ping -h"localhost"; do sleep 1; done
-      #  timeout-minutes: 1
+      - name: wait for mariadb
+        run: while ! mysqladmin ping -h"127.0.0.1"; do sleep 1; done
+        timeout-minutes: 1
       
       - name: test utilities_pkg
         run: docker exec dev-env pytest /workspace/utilities_pkg
