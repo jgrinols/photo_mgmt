@@ -27,10 +27,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: extract version number
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+
       - name: build and publish image
         uses: docker/build-push-action@v2
         with:
           push: true
           tags: |
-            docker.pkg.github.com/${{ github.repository }}/octo-image:${{ github.sha }}
-            docker.pkg.github.com/${{ github.repository }}/octo-image:${{ github.ref }}
+            docker.pkg.github.com/${{ github.repository }}/photo-mgmt:${{ github.sha }}
+            docker.pkg.github.com/${{ github.repository }}/photo-mgmt:${{ steps.get_version.outputs.VERSION }}
