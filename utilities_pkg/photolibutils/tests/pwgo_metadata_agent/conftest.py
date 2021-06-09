@@ -42,7 +42,7 @@ def mck_dict_cursor():
 @pytest.fixture(scope="session")
 def test_db_cfg():
     """provides config object for local test db"""
-    return {"host": "mariadb","port": 3306,"user": "root","passwd": "vscode","temp_db": True}
+    return {"host": "localhost", "port": 3306, "user": "root", "passwd": "vscode", "temp_db": True}
     #return {"host": "192.168.1.100","port": 3306,"user": "root","passwd": "s!0F5X9XsYFY","temp_db": False}
 
 # making the test_db function scoped so we don't have to worry about db cleanup in the tests
