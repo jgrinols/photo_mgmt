@@ -15,9 +15,19 @@ jobs:
         with:
           submodules: true
           token: ${{ secrets.REPO_ACCESS_TOKEN }}
+      
+      - name: install mysql client
+        run: sudo apt-get install mysql-client
+      
       - name: build containers
         run: docker-compose up -d
+      
+      - name: wait for mariadb
+        run: while ! mysqladmin ping -h"localhost" --silent; do sleep 1; done
+        timeout-minutes: 1
+      
       - name: test utilities_pkg
         run: docker exec dev-env pytest /workspace/utilities_pkg
+      
       - name: stop containers
         run: docker-compose down
