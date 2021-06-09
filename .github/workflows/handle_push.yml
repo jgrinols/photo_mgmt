@@ -23,7 +23,7 @@ jobs:
         run: docker-compose up -d
       
       - name: wait for mariadb
-        run: while ! mysqladmin ping -h"127.0.0.1"; do sleep 1; --silent; done
+        run: while ! mysqladmin ping -h"127.0.0.1" --silent; do sleep 1; done
         timeout-minutes: 1
       
       - name: test utilities_pkg
