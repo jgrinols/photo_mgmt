@@ -9,18 +9,10 @@ ARG INSTALL_NODE="false"
 ARG NODE_VERSION="lts/*"
 RUN if [ "${INSTALL_NODE}" = "true" ]; then su vscode -c "umask 0002 && . /usr/local/share/nvm/nvm.sh && nvm install ${NODE_VERSION} 2>&1"; fi
 
-# [Optional] If your pip requirements rarely change, uncomment this section to add them to the image.
-COPY ./utilities_pkg/requirements.txt /tmp/pip-tmp/
-RUN pip3 --disable-pip-version-check --no-cache-dir install -r /tmp/pip-tmp/requirements.txt \
-   && rm -rf /tmp/pip-tmp
-
-COPY ./utilities_pkg/icloudpd_requirements.txt /tmp/pip-tmp/
-RUN pip3 --disable-pip-version-check --no-cache-dir install -r /tmp/pip-tmp/icloudpd_requirements.txt \
-   && rm -rf /tmp/pip-tmp
-
-COPY ./utilities_pkg/dev_requirements.txt /tmp/pip-tmp/
-RUN pip3 --disable-pip-version-check --no-cache-dir install -r /tmp/pip-tmp/dev_requirements.txt \
-   && rm -rf /tmp/pip-tmp
+COPY ./ /tmp/photo_mgmt/
+# installing from a tarball because it resolves the symlinks to icloud_photo_downloader to real files
+RUN mkdir -p /tmp/pip-tmp && tar -C /tmp/photo_mgmt/utilities_pkg -zcvhf /tmp/pip-tmp/utilities_pkg.tar.gz .
+RUN pip3 --disable-pip-version-check --no-cache-dir install /tmp/pip-tmp/utilities_pkg.tar.gz[dev]
 
 # [Optional] Uncomment this section to install additional OS packages.
 # RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \

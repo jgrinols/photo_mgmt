@@ -137,7 +137,7 @@ class TestMetadataAgent:
         queue_evt_re = re.compile('^.*('+strings.LOG_QUEUE_EVT+')')
         handle_sig_re = re.compile('^.*('+strings.LOG_HANDLE_SIG('.*')+')')
         agent_proc = subprocess.Popen([
-            "/home/vscode/.local/bin/pwgo-metadata-agent",
+            "pwgo-metadata-agent",
             "--piwigo-galleries-host-path",
             "/workspace",
             "--image-crop-save-path",
