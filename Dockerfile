@@ -1,4 +1,4 @@
-FROM python:3.9-alpine
+FROM python:3.9-buster
 
 COPY ./ /tmp/photo_mgmt/
 # installing from a tarball because it resolves the symlinks to icloud_photo_downloader to real files
