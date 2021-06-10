@@ -11,7 +11,7 @@ with open("dev_requirements.txt") as f:
 
 setup(
     name='photolibutils',
-    version='0.6.0',
+    version='0.6.3',
     packages=find_packages(),
     setup_requires=['wheel'],
     install_requires=required,
