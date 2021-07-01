@@ -72,9 +72,7 @@ class Configuration():
             cfg.rek_db_config["name"] = kwargs["rek_db_name"]
 
         for key, val in kwargs.items():
-            if key == "image_crop_save_path":
-                setattr(cfg, key, Path(val))
-            elif hasattr(cfg, key):
+            if hasattr(cfg, key):
                 setattr(cfg, key, val)
 
         # pylint: disable=protected-access

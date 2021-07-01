@@ -1,5 +1,5 @@
 """Contains utility functions"""
-import uuid, asyncio
+import uuid, asyncio, os
 from io import BytesIO, FileIO
 from typing import Tuple, IO, Dict
 from json import JSONDecoder
@@ -52,7 +52,8 @@ def get_cropped_image(file: IO, box: Bounding) -> IO:
         cropped = img.crop(px_box)
 
     if AgentConfig.get().image_crop_save_path:
-        cropped_file = FileIO(AgentConfig.get().image_crop_save_path.joinpath(f"{uuid.uuid4()}.JPEG"), mode='wb+')
+        f_path = os.path.join(AgentConfig.get().image_crop_save_path, f"{uuid.uuid4()}.JPEG")
+        cropped_file = FileIO(f_path, mode='wb+')
     else:
         cropped_file = BytesIO()
 
