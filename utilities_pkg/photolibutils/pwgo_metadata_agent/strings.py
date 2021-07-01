@@ -1,6 +1,0 @@
-"""repository of string resources"""
-LOG_ADD_IMG_FACES = lambda fname: f"adding faces from {fname} to face index"
-LOG_DETECT_IMG_FACES = lambda fname: f"detecting faces in {fname}"
-LOG_MOVE_IMG = lambda fname: f"Moving {fname} from autotag to processed auto tag album"
-LOG_QUEUE_EVT = "EventDispatcher: queuing event"
-LOG_HANDLE_SIG = lambda sig: f"MetadataAgent: handling signal {sig}"

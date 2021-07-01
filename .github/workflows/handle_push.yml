@@ -22,13 +22,16 @@ jobs:
       
       - name: build containers
         run: docker-compose up -d
+
+      - name: install project
+        run: docker exec dev-env pip3 --disable-pip-version-check --no-cache-dir install /tmp/pip-tmp/pwgo_helper_package.tar.gz[dev] 
       
       - name: wait for mariadb
         run: while ! mysqladmin ping -h"127.0.0.1" --silent; do sleep 1; done
         timeout-minutes: 1
       
-      - name: test utilities_pkg
-        run: docker exec dev-env pytest /workspace/utilities_pkg
+      - name: test pwgo_helper_pkg
+        run: docker exec dev-env pytest /workspace/pwgo_helper_package
       
       - name: stop containers
         run: docker-compose down
