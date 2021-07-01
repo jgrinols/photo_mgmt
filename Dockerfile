@@ -7,4 +7,4 @@ RUN pip3 --disable-pip-version-check --no-cache-dir install wheel
 RUN pip3 --disable-pip-version-check --no-cache-dir install /tmp/pip-tmp/pwgo_helper_package.tar.gz
 
 VOLUME /virtualfs
-CMD ["pwgo-helper", "agent", "--virtualfs-root", "/virtualfs"]
+ENTRYPOINT ["pwgo-helper", "agent", "--virtualfs-root", "/virtualfs"]
