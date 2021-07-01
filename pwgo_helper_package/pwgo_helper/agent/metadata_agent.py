@@ -223,6 +223,21 @@ class MetadataAgent():
     "--rek-db-name",help="name of the rekognition database",type=str,required=False,default="rekognition"
 )
 @click.option(
+    "--rek-access-key",help="rekognition aws access key",type=str,required=True
+)
+@click.option(
+    "--rek-secret-access-key",help="rekognition aws secret access key",type=str,required=True
+)
+@click.option(
+    "--rek-region",help="rekognition aws region",type=str,required=True,default="us-east-1"
+)
+@click.option(
+    "--rek-collection-arn",help="rekognition aws arn for default collection",type=str,required=True
+)
+@click.option(
+    "--rek-collection-id",help="rekognition collection id",type=str,required=True,default="default"
+)
+@click.option(
     "--image-crop-save-path",
     help="Indicates the directory to which to save crops of faces detected in images. Crops are not saved by default.",
     type=click.Path(exists=True,file_okay=False)
