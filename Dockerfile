@@ -6,4 +6,4 @@ RUN mkdir -p /tmp/pip-tmp && tar -C /tmp/photo_mgmt/pwgo_helper_package -zcvhf /
 RUN pip3 --disable-pip-version-check --no-cache-dir install wheel
 RUN pip3 --disable-pip-version-check --no-cache-dir install /tmp/pip-tmp/pwgo_helper_package.tar.gz
 
-ENTRYPOINT ["pwgo-helper", "-v", "DEBUG", ""]
+CMD ["pwgo-helper", "agent"]
