@@ -1,8 +1,0 @@
-CREATE TABLE IF NOT EXISTS messaging.pwgo_message
-(
-	id INT(11) UNSIGNED AUTO_INCREMENT,
-	message_timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
-	message_type VARCHAR(25) NOT NULL,
-	message JSON NOT NULL,
-	PRIMARY KEY (id)
-);

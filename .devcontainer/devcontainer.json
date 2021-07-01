@@ -6,6 +6,7 @@
 	"service": "app",
 	"workspaceFolder": "/workspace",
 	"shutdownAction": "stopCompose",
+	"postStartCommand": "pip3 --disable-pip-version-check --no-cache-dir install --editable ./pwgo_helper_package[dev]",
 	// "build": {
 	// 	"dockerfile": "Dockerfile",
 	// 	"context": "..",
