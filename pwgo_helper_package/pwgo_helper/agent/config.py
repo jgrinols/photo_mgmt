@@ -28,6 +28,7 @@ class Configuration():
         self.piwigo_galleries_host_path = None
         self.rek_db_config = None
         self.pwgo_db_config = None
+        self.rek_cfg = None
         self.image_crop_save_path = None
         self.virtualfs_root = None
         self.virtualfs_allow_broken_links = True
@@ -57,6 +58,13 @@ class Configuration():
             "user": kwargs["pwgo_db_user"],
             "passwd": kwargs["pwgo_db_pw"],
             "name": kwargs["pwgo_db_name"]
+        }
+        cfg.rek_cfg = {
+            "aws_access_key_id": kwargs["rek_access_key"],
+            "aws_secret_access_key": kwargs["rek_secret_access_key"],
+            "region_name": kwargs["rek_region"],
+            "default_collection_arn": kwargs["rek_collection_arn"],
+            "collection_id": kwargs["rek_collection_id"]
         }
         # take the pwgo database params as fallbacks
         cfg.rek_db_config = cfg.pwgo_db_config.copy()

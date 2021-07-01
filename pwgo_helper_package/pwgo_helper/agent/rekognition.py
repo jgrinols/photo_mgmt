@@ -1,7 +1,6 @@
 """Container module for Rekognize class"""
 from __future__ import annotations
 
-import json
 from typing import Dict, List, IO
 
 from py_linq import Enumerable
@@ -19,8 +18,7 @@ class RekognitionClient():
 
     def __init__(self):
         self.logger = RekognitionClient.get_logger()
-        with open(AgentConfig.get().rek_db_config) as rek_cfg:
-            self._config = json.load(rek_cfg)
+        self._config = AgentConfig.get().rek_cfg
         self._rek_client = None
 
     async def __aenter__(self):
