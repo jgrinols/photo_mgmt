@@ -16,6 +16,7 @@ RUN if [ "${INSTALL_NODE}" = "true" ]; then su vscode -c "umask 0002 && . /usr/l
 # [Optional] Uncomment this line to install global node packages.
 # RUN su vscode -c "source /usr/local/share/nvm/nvm.sh && npm install -g <your-package-here>" 2>&1
 
+ENV PATH="/home/vscode/.local/bin:${PATH}"
 COPY ./ /tmp/photo_mgmt/
 # putting tarball of project here so that github action has access to
 # project with symlinks desymlinkified
