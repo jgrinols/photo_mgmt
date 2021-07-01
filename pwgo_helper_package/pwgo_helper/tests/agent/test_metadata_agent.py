@@ -369,19 +369,25 @@ class TestMetadataAgent:
                     str(vfs_root_path)
                 ])
             await asyncio.sleep(3)
-            assert not agent_proc.returncode
-            captured = capfd.readouterr().err.splitlines()
-            prg_verb_opt_re = re.compile('^.*('+strings.LOG_PRG_OPT('verbosity', os.environ["PWGO_HLPR_VERBOSITY"])+')')
-            prg_verb_opt_logs = [ prg_verb_opt_re.match(s) for s in captured ]
-            prg_verb_opt_logs = [ m.group(1) for m in prg_verb_opt_logs if m ]
-            assert len(prg_verb_opt_logs) == 1
+            
+            try:
+                captured = capfd.readouterr().err.splitlines()
+                assert not agent_proc.returncode
+                prg_verb_opt_re = re.compile('^.*('+strings.LOG_PRG_OPT('verbosity', os.environ["PWGO_HLPR_VERBOSITY"])+')')
+                prg_verb_opt_logs = [ prg_verb_opt_re.match(s) for s in captured ]
+                prg_verb_opt_logs = [ m.group(1) for m in prg_verb_opt_logs if m ]
+                assert len(prg_verb_opt_logs) == 1
 
-            agnt_wkrs_opt_re = re.compile('^.*('+strings.LOG_AGNT_OPT('workers', os.environ["PWGO_HLPR_AGENT_WORKERS"])+')')
-            agnt_wkrs_opt_logs = [ agnt_wkrs_opt_re.match(s) for s in captured ]
-            agnt_wkrs_opt_logs = [ m.group(1) for m in agnt_wkrs_opt_logs if m ]
-            assert len(agnt_wkrs_opt_logs) == 1
+                agnt_wkrs_opt_re = re.compile('^.*('+strings.LOG_AGNT_OPT('workers', os.environ["PWGO_HLPR_AGENT_WORKERS"])+')')
+                agnt_wkrs_opt_logs = [ agnt_wkrs_opt_re.match(s) for s in captured ]
+                agnt_wkrs_opt_logs = [ m.group(1) for m in agnt_wkrs_opt_logs if m ]
+                assert len(agnt_wkrs_opt_logs) == 1
 
-            agnt_initdb_opt_re = re.compile('^.*('+strings.LOG_AGNT_OPT('initialize_db', True)+')')
-            agnt_initdb_opt_logs = [ agnt_initdb_opt_re.match(s) for s in captured ]
-            agnt_initdb_opt_logs = [ m.group(1) for m in agnt_initdb_opt_logs if m ]
-            assert len(agnt_initdb_opt_logs) == 1
+                agnt_initdb_opt_re = re.compile('^.*('+strings.LOG_AGNT_OPT('initialize_db', True)+')')
+                agnt_initdb_opt_logs = [ agnt_initdb_opt_re.match(s) for s in captured ]
+                agnt_initdb_opt_logs = [ m.group(1) for m in agnt_initdb_opt_logs if m ]
+                assert len(agnt_initdb_opt_logs) == 1
+            except Exception:
+                print("external process output:\n")
+                print(*captured, sep="\n")
+                raise
