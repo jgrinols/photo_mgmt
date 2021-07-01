@@ -6,7 +6,6 @@ services:
             context: ..
             dockerfile: .devcontainer/Dockerfile
         container_name: dev-env
-        network_mode: host
         volumes:
             - ..:/workspace
         user: vscode
@@ -15,9 +14,8 @@ services:
     mariadb:
         image: mariadb
         container_name: dev-db
-        network_mode: host
-        #ports:
-        #    - 3306:3306
+        ports:
+           - 3306:3306
         environment:
             MYSQL_ROOT_PASSWORD: vscode
         command: mysqld --log-bin --binlog-format=ROW --server-id=1
