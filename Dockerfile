@@ -6,7 +6,6 @@ RUN mkdir -p /tmp/pip-tmp && tar -C /tmp/photo_mgmt/pwgo_helper_package -zcvhf /
 RUN pip3 --disable-pip-version-check --no-cache-dir install wheel
 RUN pip3 --disable-pip-version-check --no-cache-dir install /tmp/pip-tmp/pwgo_helper_package.tar.gz
 
-VOLUME /galleries
 VOLUME /virtualfs
 VOLUME /logs
-CMD exec pwgo-helper agent --piwigo-galleries-host-path /galleries --virtualfs-root /virtualfs 2>&1 | tee -a /logs/pwgo-helper-agent.log
+CMD exec pwgo-helper agent --virtualfs-root /virtualfs 2>&1 | tee -a /logs/pwgo-helper-agent.log
