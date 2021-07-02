@@ -68,7 +68,7 @@ class ImageVirtualPathEventTask(EventTask):
                         raise FileNotFoundError(broken_msg % src_path)
             with Path(AgentConfig.get().virtualfs_root):
                 virt_path = Path(self.event.db_event_data["values"]["virtual_path"]).abspath()
-                self.logger.debug("reolved virtual path to %s", virt_path)
+                self.logger.debug("resolved virtual path to %s", virt_path)
 
             if not ProgramConfig.get().dry_run and not virt_path.exists():
                 virt_path.dirname().makedirs_p()
