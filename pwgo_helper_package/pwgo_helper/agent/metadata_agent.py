@@ -1,5 +1,5 @@
 """Container module for the metadata agent service"""
-import signal, json, asyncio
+import signal, asyncio
 from asyncio.tasks import Task
 from asyncio.futures import Future
 
@@ -202,7 +202,7 @@ class MetadataAgent():
     "--pwgo-db-user",help="username for piwigo db connection",type=str,required=True
 )
 @click.option(
-    "--pwgo-db-pw",help="password for piwigo db connection",type=str,required=True
+    "--pwgo-db-pw",help="password for piwigo db connection",type=str,required=True,hide_input=True
 )
 @click.option(
     "--pwgo-db-name",help="name of the piwigo database",type=str,required=False,default="piwigo"
@@ -217,16 +217,16 @@ class MetadataAgent():
     "--rek-db-user",help="username for rekognition db connection",type=str,required=False
 )
 @click.option(
-    "--rek-db-pw",help="password for rekognition db connection",type=str,required=False
+    "--rek-db-pw",help="password for rekognition db connection",type=str,required=False,hide_input=True
 )
 @click.option(
     "--rek-db-name",help="name of the rekognition database",type=str,required=False,default="rekognition"
 )
 @click.option(
-    "--rek-access-key",help="rekognition aws access key",type=str,required=True
+    "--rek-access-key",help="rekognition aws access key",type=str,required=True,hide_input=True
 )
 @click.option(
-    "--rek-secret-access-key",help="rekognition aws secret access key",type=str,required=True
+    "--rek-secret-access-key",help="rekognition aws secret access key",type=str,required=True,hide_input=True
 )
 @click.option(
     "--rek-region",help="rekognition aws region",type=str,required=True,default="us-east-1"
@@ -292,9 +292,11 @@ def agent_entry(**kwargs):
             kwargs["pwgo_db_user"],
             kwargs["pwgo_db_pw"]
         )
+        ctx = click.get_current_context()
         for key,val in kwargs.items():
             show_val = val
-            if key in ["pwgo_db_pw","rek_db_pw"]:
+            opt = [opt for opt in ctx.command.params if opt.name == key]
+            if opt and opt[0].hide_input:
                 show_val = "OMITTED"
             logger.debug(strings.LOG_AGNT_OPT(key,show_val))
         await AgentConfiguration.initialize(**kwargs)
