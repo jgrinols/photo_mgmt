@@ -42,7 +42,9 @@ class Configuration:
             logger.setLevel(v)
             console_handler = logging.StreamHandler()
             console_handler.setLevel(v)
-            console_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s: %(message)s"))
+            console_handler.setFormatter(
+                logging.Formatter("%(asctime)s - %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S.%f")
+            )
             logger.addHandler(console_handler)
         return logger
 
