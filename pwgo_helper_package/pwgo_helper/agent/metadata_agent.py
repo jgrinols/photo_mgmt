@@ -114,7 +114,7 @@ class MetadataAgent():
     async def _event_monitor(self):
         task = asyncio.tasks.current_task()
         while not task.request_cancel:
-            if self._evt_dispatcher.state != "RUNNING":
+            if self._evt_dispatcher.state == "STOPPED":
                 try:
                     _ = self._evt_dispatcher.get_results()
                 # pylint: disable=broad-except
