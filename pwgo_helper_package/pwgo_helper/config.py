@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 
 from .agent import strings
+from .agent.log_formatter import CustomFormatter
 
 class Configuration:
     """holds global config values"""
@@ -43,7 +44,7 @@ class Configuration:
             console_handler = logging.StreamHandler()
             console_handler.setLevel(v)
             console_handler.setFormatter(
-                logging.Formatter("%(asctime)s - %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S.%f")
+                CustomFormatter("%(asctime)s - %(levelname)s: %(message)s", datefmt='%Y-%m-%d %H:%M:%S.%f')
             )
             logger.addHandler(console_handler)
         return logger
