@@ -12,10 +12,6 @@ from .database_event_row import DatabaseEventRow
 from .aggregate_results_error import AggregateResultsError
 
 from .event_task import EventTask
-from .image_metadata_event_task import ImageMetadataEventTask
-from .tag_event_task import TagEventTask
-from .image_virtual_path_event_task import ImageVirtualPathEventTask
-EventTask.register_table_task_types([ImageMetadataEventTask,TagEventTask,ImageVirtualPathEventTask])
 
 class EventDispatcher():
     """Contains the logic for managing events captured from the Piwigo database."""
@@ -181,6 +177,7 @@ class EventDispatcher():
         evt_handler = await EventTask.get_event_task(evt)
         if evt_handler:
             self.logger.debug("%s: Scheduling event handler %s", task.get_name(), evt_handler)
+            # 
             evt_handler.schedule_start()
             result = await evt_handler
             return result

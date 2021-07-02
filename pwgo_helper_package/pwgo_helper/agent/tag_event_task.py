@@ -14,7 +14,6 @@ class TagEventTask(EventTask):
     def __init__(self, tag_id):
         super().__init__()
         self.tag_id = tag_id
-        self.status = "INIT"
         self._tag_task = None
 
     @classmethod
@@ -37,8 +36,9 @@ class TagEventTask(EventTask):
 
     def schedule_start(self):
         """schedules execution of the tag event handler on the event loop"""
-        self._tag_task = asyncio.create_task(self._handle_tag_event())
-        self.status = "EXEC_QUEUED"
+        if not self.is_scheduled():
+            self._tag_task = asyncio.create_task(self._handle_tag_event())
+            self.status = "EXEC_QUEUED"
 
     async def _handle_tag_event(self):
         self.status = "EXEC"

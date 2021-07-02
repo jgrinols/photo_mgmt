@@ -20,7 +20,6 @@ class ImageVirtualPathEventTask(EventTask):
         super().__init__()
         self.logger = ImageVirtualPathEventTask.get_logger()
         self.event = event
-        self.status = "INIT"
         self._virt_path_task = None
 
     @staticmethod
@@ -48,9 +47,10 @@ class ImageVirtualPathEventTask(EventTask):
 
     def schedule_start(self):
         """schedules execution of the image virtual path event handler on the event loop"""
-        loop = asyncio.get_event_loop()
-        self._virt_path_task = loop.run_in_executor(None, self._handle_event)
-        self.status = "EXEC_QUEUED"
+        if not self.is_scheduled():
+            loop = asyncio.get_event_loop()
+            self._virt_path_task = loop.run_in_executor(None, self._handle_event)
+            self.status = "EXEC_QUEUED"
 
     def _handle_event(self):
         self.status = "EXEC"

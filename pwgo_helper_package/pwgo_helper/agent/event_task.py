@@ -36,6 +36,13 @@ class EventTask(ABC):
     async def get_event_task(cls, evt: DatabaseEventRow) -> EventTask:
         """returns an event task instance for the given event table.
         this may be a new or an existing instance depending on the event"""
+        if not cls._tbl_task_map:
+            # pylint: disable=import-outside-toplevel
+            from .image_metadata_event_task import ImageMetadataEventTask
+            from .tag_event_task import TagEventTask
+            from .image_virtual_path_event_task import ImageVirtualPathEventTask
+            cls.register_table_task_types([ImageMetadataEventTask,TagEventTask,ImageVirtualPathEventTask])
+
         if evt.table_name in cls._tbl_task_map:
             resolved_task_cls = cls._tbl_task_map[evt.table_name]
             # this await returns an awaitable
@@ -62,7 +69,8 @@ class EventTask(ABC):
             return result
 
         finally:
-            self.__class__.get_pending_tasks().remove(self)
+            if self in self.__class__.get_pending_tasks():
+                self.__class__.get_pending_tasks().remove(self)
 
     @abstractmethod
     def schedule_start(self):
@@ -71,6 +79,11 @@ class EventTask(ABC):
     @abstractmethod
     async def _execute_task(self):
         """execute the event handling task"""
+
+    def is_scheduled(self) -> bool:
+        """returns a boolean indicating whether this task has been
+        scheduled for execution"""
+        return self.status != "INIT"
 
     def attach_callback(self, func):
         """Attaches a callback function to be called upon task completion.
