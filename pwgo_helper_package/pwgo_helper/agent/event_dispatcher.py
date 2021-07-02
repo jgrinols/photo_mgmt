@@ -176,7 +176,7 @@ class EventDispatcher():
 
         evt_handler = await EventTask.get_event_task(evt)
         if evt_handler:
-            self.logger.debug("%s: Scheduling event handler %s", task.get_name(), evt_handler)
+            self.logger.debug("%s: Scheduling event handler %s", task.get_name(), type(evt_handler).__name__)
             # 
             evt_handler.schedule_start()
             result = await evt_handler
@@ -207,10 +207,14 @@ class EventDispatcher():
                 self.logger.exception("%s encountered an error", task.get_name())
                 # handle case where we've exceeded error limit
                 if self._error_cnt >= self._error_limit:
+                    self.logger.info("error count %s exceeds error limit of %s. Stopping dispatcher."
+                        , self._error_cnt, self._error_limit)
                     asyncio.create_task(self.stop(force=True))
                     await asyncio.sleep(0)
                 elif proceed(task):
                     # spawn a new worker task
+                    self.logger.info("error count %s has not exceeded error limit of %s. Spawning new worker."
+                        , self._error_cnt, self._error_limit)
                     asyncio.create_task(self._add_worker())
                     await asyncio.sleep(0)
                 raise error
