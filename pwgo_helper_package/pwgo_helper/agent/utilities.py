@@ -37,7 +37,7 @@ def convert_pct_bounding_box(img_dimen: Dimension, bounding_box: Bounding) -> Bo
     return (max(int(round(left)), 0),
         max(int(round(top)), 0),
         min(int(round(right)), img_dimen[0]),
-        min(int(round(bottom))))
+        min(int(round(bottom)), img_dimen[1]))
 
 def get_cropped_image(file: IO, box: Bounding) -> IO:
     """generates a cropped image file from an exisiting image file using the specified
