@@ -350,6 +350,7 @@ class TestMetadataAgent:
             vfs_root_path = Path(tmp_dir).joinpath("vfs")
             vfs_root_path.mkdir()
 
+            test_str = "test"
             os.environ["PWGO_HLPR_VERBOSITY"] = "DEBUG"
             os.environ["PWGO_HLPR_AGENT_WORKERS"] = "17"
             os.environ["PWGO_HLPR_AGENT_INITIALIZE_DB"] = "True"
@@ -357,6 +358,10 @@ class TestMetadataAgent:
             os.environ["PWGO_HLPR_AGENT_PWGO_DB_PORT"] = str(db_cfg["port"])
             os.environ["PWGO_HLPR_AGENT_PWGO_DB_USER"] = db_cfg["user"]
             os.environ["PWGO_HLPR_AGENT_PWGO_DB_PW"] = db_cfg["passwd"]
+            os.environ["PWGO_HLPR_AGENT_REK_ACCESS_KEY"] = test_str
+            os.environ["PWGO_HLPR_AGENT_REK_SECRET_ACCESS_KEY"] = test_str
+            os.environ["PWGO_HLPR_AGENT_REK_COLLECTION_ARN"] = test_str
+            os.environ["PWGO_HLPR_AGENT_REK_COLLECTION_ID"] = test_str
             agent_proc = subprocess.Popen([
                     "pwgo-helper",
                     "--dry-run",
@@ -369,16 +374,18 @@ class TestMetadataAgent:
                     str(vfs_root_path)
                 ])
             await asyncio.sleep(3)
-            
+
             try:
                 captured = capfd.readouterr().err.splitlines()
                 assert not agent_proc.returncode
-                prg_verb_opt_re = re.compile('^.*('+strings.LOG_PRG_OPT('verbosity', os.environ["PWGO_HLPR_VERBOSITY"])+')')
+                re_str = '^.*('+strings.LOG_PRG_OPT('verbosity', os.environ["PWGO_HLPR_VERBOSITY"])+')'
+                prg_verb_opt_re = re.compile(re_str)
                 prg_verb_opt_logs = [ prg_verb_opt_re.match(s) for s in captured ]
                 prg_verb_opt_logs = [ m.group(1) for m in prg_verb_opt_logs if m ]
                 assert len(prg_verb_opt_logs) == 1
 
-                agnt_wkrs_opt_re = re.compile('^.*('+strings.LOG_AGNT_OPT('workers', os.environ["PWGO_HLPR_AGENT_WORKERS"])+')')
+                re_str = '^.*('+strings.LOG_AGNT_OPT('workers', os.environ["PWGO_HLPR_AGENT_WORKERS"])+')'
+                agnt_wkrs_opt_re = re.compile(re_str)
                 agnt_wkrs_opt_logs = [ agnt_wkrs_opt_re.match(s) for s in captured ]
                 agnt_wkrs_opt_logs = [ m.group(1) for m in agnt_wkrs_opt_logs if m ]
                 assert len(agnt_wkrs_opt_logs) == 1
