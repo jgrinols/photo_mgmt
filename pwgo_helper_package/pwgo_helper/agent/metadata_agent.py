@@ -115,6 +115,7 @@ class MetadataAgent():
         task = asyncio.tasks.current_task()
         while not task.request_cancel:
             if self._evt_dispatcher.state == "STOPPED":
+                self._logger.info("event dispatched is stopped. stopping event monitor.")
                 try:
                     _ = self._evt_dispatcher.get_results()
                 # pylint: disable=broad-except
@@ -125,14 +126,17 @@ class MetadataAgent():
                     raise RuntimeError("dispatcher is not running...stopping metadata agent")
 
             for evt in self._binlog_stream:
-                self._logger.debug("Processing %s on %s affecting %s rows"
-                    , type(evt).__name__, evt.table, len(evt.rows)
-                )
+                if (self._evt_dispatcher.state == "RUNNING"):
+                    self._logger.debug("Processing %s on %s affecting %s rows"
+                        , type(evt).__name__, evt.table, len(evt.rows)
+                    )
 
-                for row in evt.rows:
-                    await self._evt_dispatcher.queue_event(row)
+                    for row in evt.rows:
+                        await self._evt_dispatcher.queue_event(row)
 
-                self._logger.debug("Event queued...listening for new events")
+                    self._logger.debug("Event queued...listening for new events")
+                else:
+                    self._logger.debug("dispatcher is not running. ignoring event.")
 
             await asyncio.sleep(.1)
 
