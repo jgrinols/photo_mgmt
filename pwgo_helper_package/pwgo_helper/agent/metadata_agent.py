@@ -45,6 +45,7 @@ class MetadataAgent():
 
     async def start(self):
         """starts the metadata agent service"""
+        a_cfg = AgentConfiguration.get()
         #attach signal handlers
         loop = asyncio.get_running_loop()
         loop.add_signal_handler(signal.SIGINT, self._signal_handler, signal.SIGINT)
@@ -57,7 +58,7 @@ class MetadataAgent():
 
         await asyncio.gather(face_idx_job, virtualfs_job)
 
-        self._evt_dispatcher = await EventDispatcher.create(AgentConfiguration.get().workers)
+        self._evt_dispatcher = await EventDispatcher.create(a_cfg.workers, a_cfg.worker_error_limit)
         self._evt_monitor_task = await self._start_event_monitor()
         self._is_running = True
         await self.process_autotag_backlog()
