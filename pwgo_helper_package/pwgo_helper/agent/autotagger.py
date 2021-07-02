@@ -296,7 +296,7 @@ class AutoTagger():
     async def sync_face_index(cls):
         """Adds and/or removes images from the Rekognition face index as neccessary to sync it
         up with the Piwigo face index album"""
-        cls.get_logger().info("begining face index sync")
+        cls.get_logger().info("beginning face index sync")
         cls.get_logger().debug("getting list of currently indexed images")
         existing = {}
         if not ProgramConfig.get().dry_run:
