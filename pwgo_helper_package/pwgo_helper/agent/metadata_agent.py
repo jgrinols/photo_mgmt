@@ -126,7 +126,7 @@ class MetadataAgent():
 
             for evt in self._binlog_stream:
                 self._logger.debug("Processing %s on %s affecting %s rows"
-                    , type(evt), evt.table, len(evt.rows)
+                    , type(evt).__name__, evt.table, len(evt.rows)
                 )
 
                 for row in evt.rows:
