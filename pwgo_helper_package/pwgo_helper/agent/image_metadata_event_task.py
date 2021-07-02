@@ -22,7 +22,6 @@ class ImageMetadataEventTask(EventTask):
         super().__init__()
         self.image_id = image_id
         self._current_sleep_fut = None
-        self.status = "INIT"
         self._action_task = None
         if "delay" in kwargs:
             self._std_delay = kwargs["delay"]
@@ -72,9 +71,10 @@ class ImageMetadataEventTask(EventTask):
 
     def schedule_start(self):
         """schedules execution of the image tag event handling task"""
-        self._current_sleep_fut = asyncio.ensure_future(asyncio.sleep(self._std_delay))
-        self._current_sleep_fut.add_done_callback(self._schedule_action_task)
-        self.status = "WAIT"
+        if not self.is_scheduled():
+            self._current_sleep_fut = asyncio.ensure_future(asyncio.sleep(self._std_delay))
+            self._current_sleep_fut.add_done_callback(self._schedule_action_task)
+            self.status = "WAIT"
 
     async def _execute_task(self):
         sleep_fut = self._current_sleep_fut
