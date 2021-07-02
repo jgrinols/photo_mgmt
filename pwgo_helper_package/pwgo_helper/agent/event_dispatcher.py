@@ -204,7 +204,7 @@ class EventDispatcher():
             #pylint: disable=broad-except
             except Exception as error:
                 self._error_cnt += 1
-                self.logger.exception("%s encounter an error", task.get_name())
+                self.logger.exception("%s encountered an error", task.get_name())
                 # handle case where we've exceeded error limit
                 if self._error_cnt >= self._error_limit:
                     asyncio.create_task(self.stop(force=True))
