@@ -53,24 +53,6 @@ class TestImageHandling:
         assert right == img_dimen[0]
         assert bottom == 1492
 
-    def test_convert_pct_bounding_box_invalid(self):
-        """Test invalid bounding box--goes outside image dimensions"""
-        test_data = {
-            "ImageDimensions": { "Width": 3024, "Height": 4032 },
-            "BoundingBox": {
-                "Width": 0.75,
-                "Height": 0.20713073015213014,
-                "Left": 0.26,
-                "Top": 0.1630047857761383
-            }
-        }
-
-        img_dimen = (test_data["ImageDimensions"]["Width"],
-            test_data["ImageDimensions"]["Height"])
-        with pytest.raises(ValueError):
-            _ = utilities.convert_pct_bounding_box(img_dimen
-                , test_data["BoundingBox"])
-
     def test_get_cropped_image_simple(self):
         """basic functional test of get_cropped_image"""
         crop_bounding = {

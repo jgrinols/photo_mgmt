@@ -28,21 +28,16 @@ def map_pwgo_path(pwgo_rel_path):
 def convert_pct_bounding_box(img_dimen: Dimension, bounding_box: Bounding) -> Bounding:
     """Converts the image dimension percentage based bounding box format used by Rekognition
     into the pixel coordinate form used by PIL/Pillow"""
-    invalid_checks = [
-        lambda b: any(v < 0 or v > 1 for v in b.values()),
-        lambda b: b["Left"] + b["Width"] > 1,
-        lambda b: b["Top"] + b["Height"] > 1
-    ]
-    for check in invalid_checks:
-        if check(bounding_box):
-            raise ValueError("Invalid values for percentage bounding box")
 
     left = img_dimen[0] * bounding_box["Left"]
     top = img_dimen[1] * bounding_box["Top"]
     right = img_dimen[0] * (bounding_box["Left"] + bounding_box["Width"])
     bottom = img_dimen[1] * (bounding_box["Top"] + bounding_box["Height"])
 
-    return (int(round(left)),int(round(top)),int(round(right)),int(round(bottom)))
+    return (max(int(round(left)), 0),
+        max(int(round(top)), 0),
+        min(int(round(right)), img_dimen[0]),
+        min(int(round(bottom))))
 
 def get_cropped_image(file: IO, box: Bounding) -> IO:
     """generates a cropped image file from an exisiting image file using the specified
