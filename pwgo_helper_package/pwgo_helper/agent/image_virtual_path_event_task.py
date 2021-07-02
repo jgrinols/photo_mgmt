@@ -90,7 +90,6 @@ class ImageVirtualPathEventTask(EventTask):
     @classmethod
     def _remove_path(cls, target: Path):
         logger = cls.get_logger()
-        logger.debug("removing %s", target)
         if not AgentConfig.get().virtualfs_remove_empty_dirs:
             if not ProgramConfig.get().dry_run:
                 if not target.isdir():
