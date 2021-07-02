@@ -56,7 +56,7 @@ class ImageVirtualPathEventTask(EventTask):
         self.status = "EXEC"
 
         if self.event.db_event_type == "INSERT":
-            self.logger.debug("handling image virtual path insert")
+            self.logger.info("handling image virtual path insert")
             with Path(AgentConfig.get().piwigo_galleries_host_path):
                 src_path = Path(self.event.db_event_data["values"]["physical_path"]).abspath()
                 self.logger.debug("resolved source file to %s", src_path)
@@ -75,7 +75,7 @@ class ImageVirtualPathEventTask(EventTask):
                 src_path.symlink(virt_path)
 
         elif self.event.db_event_type == "DELETE":
-            self.logger("handling image virtual path delete")
+            self.logger.info("handling image virtual path delete")
             with Path(AgentConfig.get().virtualfs_root):
                 virt_path = Path(self.event.db_event_data["values"]["virtual_path"]).abspath()
                 self.logger.debug("resolved existing virtual path to %s", virt_path)
