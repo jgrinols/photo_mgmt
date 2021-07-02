@@ -168,6 +168,7 @@ class TestMetadataAgent:
         with tempfile.TemporaryDirectory() as tmp_dir:
             vfs_root_path = Path(tmp_dir).joinpath("vfs")
             vfs_root_path.mkdir()
+            test_str = "test"
             agent_proc = subprocess.Popen([
                 "pwgo-helper",
                 "-v",
@@ -188,90 +189,115 @@ class TestMetadataAgent:
                 db_cfg["user"],
                 "--pwgo-db-pw",
                 db_cfg["passwd"],
+                "--rek-access-key",
+                test_str,
+                "--rek-secret-access-key",
+                test_str,
+                "--rek-collection-arn",
+                test_str,
+                "--rek-collection-id",
+                test_str,
                 "--workers",
                 "10"
             ])
             await asyncio.sleep(3)
             try:
-                # verify program is still running
-                assert not agent_proc.returncode
-                captured = capfd.readouterr().err.splitlines()
+                try:
+                    # verify program is still running
+                    assert not agent_proc.returncode
+                    captured = capfd.readouterr().err.splitlines()
 
-                # verification of initial face sync
-                add_face_idx_logs = [ add_face_idx_re.match(s) for s in captured ]
-                add_face_idx_logs = [ m.group(1) for m in add_face_idx_logs if m ]
-                assert len(face_idx_images) == len(add_face_idx_logs)
-                for img in face_idx_images:
-                    assert strings.LOG_ADD_IMG_FACES(img) in add_face_idx_logs
+                    # verification of initial face sync
+                    add_face_idx_logs = [ add_face_idx_re.match(s) for s in captured ]
+                    add_face_idx_logs = [ m.group(1) for m in add_face_idx_logs if m ]
+                    assert len(face_idx_images) == len(add_face_idx_logs)
+                    for img in face_idx_images:
+                        assert strings.LOG_ADD_IMG_FACES(img) in add_face_idx_logs
 
-                # verification of virtualfs rebuild
-                vfs_remove_logs = [ vfs_remove_re.match(s) for s in captured ]
-                vfs_remove_logs = [ m.group(1) for m in vfs_remove_logs if m ]
-                assert len(vfs_remove_logs) == 1
-                vfs_create_logs = [ vfs_create_re.match(s) for s in captured ]
-                vfs_create_logs = [ m.group(1) for m in vfs_create_logs if m ]
-                assert len(vfs_create_logs) == 1
+                    # verification of virtualfs rebuild
+                    vfs_remove_logs = [ vfs_remove_re.match(s) for s in captured ]
+                    vfs_remove_logs = [ m.group(1) for m in vfs_remove_logs if m ]
+                    assert len(vfs_remove_logs) == 1
+                    vfs_create_logs = [ vfs_create_re.match(s) for s in captured ]
+                    vfs_create_logs = [ m.group(1) for m in vfs_create_logs if m ]
+                    assert len(vfs_create_logs) == 1
 
-                # verification of autotag backlog handling
-                detect_faces_logs = [ detect_faces_re.match(s) for s in captured ]
-                detect_faces_logs = [ m.group(1) for m in detect_faces_logs if m ]
-                move_img_logs = [ move_img_re.match(s) for s in captured ]
-                move_img_logs = [ m.group(1) for m in move_img_logs if m ]
-                assert len(detect_faces_logs) == len(atag_bload_images)
-                assert len(move_img_logs) == len(atag_bload_images)
-                async with test_db.acquire_dict_cursor(db="piwigo") as (cur,_):
-                    sql_ids_placeholders = ','.join(['%s' for x in atag_bload_images])
-                    sql = f"""
-                        SELECT id, file
-                        FROM images
-                        WHERE id IN ({sql_ids_placeholders})
-                    """
-                    await cur.execute(sql, tuple(atag_bload_images))
-                    atag_fnames = await cur.fetchall()
+                    # verification of autotag backlog handling
+                    detect_faces_logs = [ detect_faces_re.match(s) for s in captured ]
+                    detect_faces_logs = [ m.group(1) for m in detect_faces_logs if m ]
+                    move_img_logs = [ move_img_re.match(s) for s in captured ]
+                    move_img_logs = [ m.group(1) for m in move_img_logs if m ]
+                    assert len(detect_faces_logs) == len(atag_bload_images)
+                    assert len(move_img_logs) == len(atag_bload_images)
+                    async with test_db.acquire_dict_cursor(db="piwigo") as (cur,_):
+                        sql_ids_placeholders = ','.join(['%s' for x in atag_bload_images])
+                        sql = f"""
+                            SELECT id, file
+                            FROM images
+                            WHERE id IN ({sql_ids_placeholders})
+                        """
+                        await cur.execute(sql, tuple(atag_bload_images))
+                        atag_fnames = await cur.fetchall()
 
-                for img in atag_fnames:
-                    assert strings.LOG_DETECT_IMG_FACES(img["file"]) in detect_faces_logs
-                    assert strings.LOG_MOVE_IMG(img["file"]) in move_img_logs
+                    for img in atag_fnames:
+                        assert strings.LOG_DETECT_IMG_FACES(img["file"]) in detect_faces_logs
+                        assert strings.LOG_MOVE_IMG(img["file"]) in move_img_logs
 
-                # test handling of new face index image
-                img_id = 207
-                async with test_db.acquire_dict_cursor(db="piwigo") as (cur,conn):
-                    sql = """
-                        INSERT INTO image_category (image_id, category_id)
-                        VALUES (%s, %s)
-                    """
-                    await cur.execute(sql, (img_id, 129))
-                    await conn.commit()
+                    # test handling of new face index image
+                    img_id = 207
+                    async with test_db.acquire_dict_cursor(db="piwigo") as (cur,conn):
+                        sql = """
+                            INSERT INTO image_category (image_id, category_id)
+                            VALUES (%s, %s)
+                        """
+                        await cur.execute(sql, (img_id, 129))
+                        await conn.commit()
 
-                    sql = """
-                        SELECT file
-                        FROM images
-                        WHERE id = %s
-                    """
-                    await cur.execute(sql, (img_id))
-                    img = await cur.fetchone()
+                        sql = """
+                            SELECT file
+                            FROM images
+                            WHERE id = %s
+                        """
+                        await cur.execute(sql, (img_id))
+                        img = await cur.fetchone()
+                except Exception:
+                    print("external process output:\n")
+                    print(*captured, sep="\n")
+                    raise
 
-                await asyncio.sleep(3)
-                # verify program is still running
-                assert not agent_proc.returncode
-                captured = capfd.readouterr().err.splitlines()
-                evt_queue_logs = [ queue_evt_re.match(s) for s in captured ]
-                evt_queue_logs = [ m.group(1) for m in evt_queue_logs if m ]
-                # one event for the image_category insert and another for the triggered
-                # image_virtual_path insert
-                assert len(evt_queue_logs) == 2
-                add_faces_logs = [ add_face_idx_re.match(s) for s in captured ]
-                add_faces_logs = [ m.group(1) for m in add_faces_logs if m ]
-                assert strings.LOG_ADD_IMG_FACES(img["file"]) in add_faces_logs
+                try:
+                    await asyncio.sleep(3)
+                    # verify program is still running
+                    assert not agent_proc.returncode
+                    captured = capfd.readouterr().err.splitlines()
+                    evt_queue_logs = [ queue_evt_re.match(s) for s in captured ]
+                    evt_queue_logs = [ m.group(1) for m in evt_queue_logs if m ]
+                    # one event for the image_category insert and another for the triggered
+                    # image_virtual_path insert
+                    assert len(evt_queue_logs) == 2
+                    add_faces_logs = [ add_face_idx_re.match(s) for s in captured ]
+                    add_faces_logs = [ m.group(1) for m in add_faces_logs if m ]
+                    assert strings.LOG_ADD_IMG_FACES(img["file"]) in add_faces_logs
 
-                agent_proc.send_signal(signal.SIGQUIT)
-                await asyncio.sleep(3)
-                captured = capfd.readouterr().err.splitlines()
-                handle_sig_logs = [ handle_sig_re.match(s) for s in captured ]
-                handle_sig_logs = [ m.group(1) for m in handle_sig_logs if m ]
-                assert len(handle_sig_logs) == 1
-                # pylint: disable=no-member
-                assert strings.LOG_HANDLE_SIG(signal.SIGQUIT.name) in handle_sig_logs
+                except Exception:
+                    print("external process output:\n")
+                    print(*captured, sep="\n")
+                    raise
+
+                try:
+                    agent_proc.send_signal(signal.SIGQUIT)
+                    await asyncio.sleep(3)
+                    captured = capfd.readouterr().err.splitlines()
+                    handle_sig_logs = [ handle_sig_re.match(s) for s in captured ]
+                    handle_sig_logs = [ m.group(1) for m in handle_sig_logs if m ]
+                    assert len(handle_sig_logs) == 1
+                    # pylint: disable=no-member
+                    assert strings.LOG_HANDLE_SIG(signal.SIGQUIT.name) in handle_sig_logs
+
+                except Exception:
+                    print("external process output:\n")
+                    print(*captured, sep="\n")
+                    raise
 
             finally:
                 agent_proc.terminate()
@@ -296,6 +322,7 @@ class TestMetadataAgent:
                 res = await cur.fetchone()
                 assert not res["cnt"]
 
+                test_str = "test"
                 agent_proc = subprocess.Popen([
                     "pwgo-helper",
                     "-v",
@@ -316,6 +343,14 @@ class TestMetadataAgent:
                     db_cfg["user"],
                     "--pwgo-db-pw",
                     db_cfg["passwd"],
+                    "--rek-access-key",
+                    test_str,
+                    "--rek-secret-access-key",
+                    test_str,
+                    "--rek-collection-arn",
+                    test_str,
+                    "--rek-collection-id",
+                    test_str,
                     "--workers",
                     "10",
                     "--initialize-db"
@@ -339,6 +374,11 @@ class TestMetadataAgent:
                     await cur.execute(sql)
                     res = await cur.fetchone()
                     assert res["cnt"]
+
+                except Exception:
+                    print("external process output:\n")
+                    print(*captured, sep="\n")
+                    raise
 
                 finally:
                     agent_proc.terminate()
