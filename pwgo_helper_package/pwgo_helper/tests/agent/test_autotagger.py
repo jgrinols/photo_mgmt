@@ -170,7 +170,7 @@ class TestAutotagger:
             async with AutoTagger.create(img) as tagger:
                 await tagger._get_face_image_files()
 
-        mck_open.assert_called_once()
+        mck_open.call_count == 2
         assert m_get_crp.call_count == 2
 
         async with test_db.acquire_dict_cursor(db="rekognition") as (cur,_):
