@@ -176,25 +176,28 @@ class AutoTagger():
                         face_details = await client.detect_faces(img_file)
 
                 if face_details:
-                    if not existing:
-                        for index, detail in enumerate(face_details):
-                            detail["index"] = index
+                    with self.image.open_file() as img_file:
+                        if not existing:
+                            for index, detail in enumerate(face_details):
+                                detail["index"] = index
 
-                            sql = """
-                                INSERT INTO processed_faces ( piwigo_image_id, face_index, face_details )
-                                VALUES ( %s, %s, '%s' )
-                            """
+                                sql = """
+                                    INSERT INTO processed_faces ( piwigo_image_id, face_index, face_details )
+                                    VALUES ( %s, %s, '%s' )
+                                """
 
-                            await cur.execute(sql % (
-                                self.image.id,
-                                detail["index"],
-                                json.dumps(detail)
-                            ))
+                                await cur.execute(sql % (
+                                    self.image.id,
+                                    detail["index"],
+                                    json.dumps(detail)
+                                ))
 
-                        await conn.commit()
+                            await conn.commit()
 
-                    img_file.seek(0)
-                    results = [(utilities.get_cropped_image(img_file, f["BoundingBox"]), f["index"]) for f in face_details]
+                        img_file.seek(0)
+                        results = [
+                            (utilities.get_cropped_image(img_file, f["BoundingBox"]), f["index"]) for f in face_details
+                        ]
 
         return results
 
