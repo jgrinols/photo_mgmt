@@ -157,14 +157,26 @@ class AutoTagger():
         and generates cropped images for those locations"""
         self.logger.debug(strings.LOG_DETECT_IMG_FACES(self.image.file))
         results = []
+        db_cn_ctx = DbConnectionPool.get()
         if not ProgramConfig.get().dry_run:
-            with self.image.open_file() as img_file:
-                client = await self._get_rek_client()
-                face_details = await client.detect_faces(img_file)
+            async with db_cn_ctx.acquire_dict_cursor(db=AgentConfig.get().rek_db_config["name"]) as (cur,conn):
+                sql = """
+                    SELECT face_details
+                    FROM rekognition.processed_faces
+                    WHERE piwigo_image_id = %s
+                """
+
+                await cur.execute(sql, self.image.id)
+                face_details = [json.loads(d["face_details"]) for d in await cur.fetchall()]
+                existing = len(face_details) > 0
+
+                if not existing:
+                    with self.image.open_file() as img_file:
+                        client = await self._get_rek_client()
+                        face_details = await client.detect_faces(img_file)
 
                 if face_details:
-                    db_cn_ctx = DbConnectionPool.get()
-                    async with db_cn_ctx.acquire_dict_cursor(db=AgentConfig.get().rek_db_config["name"]) as (cur,conn):
+                    if not existing:
                         for index, detail in enumerate(face_details):
                             detail["index"] = index
 
@@ -224,28 +236,44 @@ class AutoTagger():
 
     async def _fetch_image_labels(self):
         labels = []
+        existing = False
         if not ProgramConfig.get().dry_run:
-            with self.image.open_file() as img_file:
-                client = await self._get_rek_client()
-                labels = await client.detect_labels(img_file)
-        if labels:
             db_cn_ctx = DbConnectionPool.get()
             async with db_cn_ctx.acquire_dict_cursor(db=AgentConfig.get().rek_db_config["name"]) as (cur,conn):
                 sql = """
-                    INSERT INTO image_labels (piwigo_image_id, label, confidence, parents)
-                    VALUES (%s, '%s', %s, '%s')
+                    SELECT label
+                    FROM rekognition.image_labels
+                    WHERE piwigo_image_id = %s
                 """
 
-                for label in labels:
-                    await cur.execute(sql % (
-                            self.image.id,
-                            label["Name"],
-                            label["Confidence"],
-                            json.dumps(label["Parents"])
-                        ))
-                await conn.commit()
+                await cur.execute(sql, self.image.id)
+                existing_labels = [l["label"] for l in await cur.fetchall()]
+                existing = len(existing_labels) > 0
 
-        return [l["Name"] for l in labels]
+                if not existing:
+                    with self.image.open_file() as img_file:
+                        client = await self._get_rek_client()
+                        labels = await client.detect_labels(img_file)
+
+                    if labels:
+                        sql = """
+                            INSERT INTO image_labels (piwigo_image_id, label, confidence, parents)
+                            VALUES (%s, '%s', %s, '%s')
+                        """
+
+                        for label in labels:
+                            await cur.execute(sql % (
+                                    self.image.id,
+                                    label["Name"],
+                                    label["Confidence"],
+                                    json.dumps(label["Parents"])
+                                ))
+                        await conn.commit()
+
+        if existing:
+            return existing_labels
+        else:
+            return [l["Name"] for l in labels]
 
     async def _move_image_to_processed(self) -> None:
         """removes the image from the autotag virtual album and adds it to the
