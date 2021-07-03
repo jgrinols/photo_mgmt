@@ -85,9 +85,10 @@ class PiwigoScripts:
             FOR EACH ROW
             BEGIN
                     INSERT INTO piwigo.image_virtual_paths
-                    (image_id, category_id, physical_path, virtual_path)
+                    (image_id, category_id, category_uppercats, physical_path, virtual_path)
                     SELECT new.image_id
                             , new.category_id
+                            , c.uppercats
                             , CONCAT(pcp.cpath, '/', i.file)
                             , CONCAT(vcp.cpath, '/', i.id, '_', i.file)
                     FROM piwigo.image_category ic
@@ -199,15 +200,17 @@ class PiwigoScripts:
             (
                     image_id MEDIUMINT(8) UNSIGNED NOT NULL,
                     category_id SMALLINT(5) UNSIGNED NOT NULL,
+                    category_uppercats VARCHAR(255) NOT NULL,
                     physical_path VARCHAR(255) NOT NULL,
                     virtual_path VARCHAR(255) NOT NULL,
                     PRIMARY KEY (image_id, category_id)
             );
 
             INSERT INTO piwigo.image_virtual_paths
-            (image_id, category_id, physical_path, virtual_path)
+            (image_id, category_id, category_uppercats, physical_path, virtual_path)
             SELECT ic.image_id
                     , ic.category_id
+                    , c.uppercats
                     , CONCAT(pcp.cpath, '/', i.file)
                     , CONCAT(vcp.cpath, '/', i.id, '_', i.file)
             FROM piwigo.image_category ic
@@ -234,7 +237,7 @@ class PiwigoScripts:
                         , 'table_primary_key', JSON_ARRAY(new.image_id, new.category_id)
                         , 'operation', 'INSERT'
                         , 'values', JSON_OBJECT(
-                            'physical_path', new.physical_path, 'virtual_path', new.virtual_path
+                            'physical_path', new.physical_path, 'virtual_path', new.virtual_path, 'category_uppercats', new.category_uppercats
                         )
                 ));
 
@@ -254,7 +257,7 @@ class PiwigoScripts:
                         , 'table_primary_key', JSON_ARRAY(old.image_id, old.category_id)
                         , 'operation', 'DELETE'
                         , 'values', JSON_OBJECT(
-                            'physical_path', old.physical_path, 'virtual_path', old.virtual_path
+                            'physical_path', old.physical_path, 'virtual_path', old.virtual_path, 'category_uppercats', old.category_uppercats
                         )
                 ));
 

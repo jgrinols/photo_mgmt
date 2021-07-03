@@ -41,8 +41,18 @@ class ImageVirtualPathEventTask(EventTask):
     def resolve_event_task(cls, evt: ImageEventRow) -> asyncio.Future:
         """this class doesn't require any complex resolution logic so we
         just create a new instance and set it as a result on a Future"""
+        uppercats_str = evt.db_event_data["values"]["category_uppercats"]
+        uppercats = [int(c.strip()) for c in uppercats_str.split(",")]
+        vfs_cat_id = AgentConfig.get().virtualfs_category_id
+
         result_fut = asyncio.Future()
-        result_fut.set_result(ImageVirtualPathEventTask(evt))
+        if not vfs_cat_id or vfs_cat_id in uppercats:
+            result_fut.set_result(ImageVirtualPathEventTask(evt))
+        else:
+            cls.get_logger().debug("%s is not a descendent of the virtualfs root category %s. skipping..."
+                , evt.db_event_data["values"]["virtual_path"], str(vfs_cat_id))
+            result_fut.set_result(False)
+
         return result_fut
 
     def schedule_start(self):
@@ -98,6 +108,12 @@ class ImageVirtualPathEventTask(EventTask):
                     target.rmdir()
         else:
             parent_dir = target.parent
+            if not ProgramConfig.get().dry_run:
+                if not target.isdir():
+                    target.remove_p()
+                else:
+                    target.rmdir()
+
             logger.debug("considering %s for removal...", parent_dir)
             is_root_dir = parent_dir.samefile(AgentConfig.get().virtualfs_root)
             logger.debug("is path the root destination path? %s", is_root_dir)
@@ -106,13 +122,8 @@ class ImageVirtualPathEventTask(EventTask):
             remove_parent = not is_root_dir and is_empty
             if remove_parent:
                 logger.debug("removing %s", parent_dir)
-            if not ProgramConfig.get().dry_run:
-                if not target.isdir():
-                    target.remove_p()
-                else:
-                    target.rmdir()
-                if remove_parent:
-                    cls._remove_path(parent_dir)
+            if not ProgramConfig.get().dry_run and remove_parent:
+                cls._remove_path(parent_dir)
 
     @classmethod
     async def rebuild_virtualfs(cls):

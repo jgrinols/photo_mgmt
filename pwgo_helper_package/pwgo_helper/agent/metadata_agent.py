@@ -263,6 +263,11 @@ class MetadataAgent():
     is_flag=True, default=True
 )
 @click.option(
+    "--virtualfs-category-id",
+    help="the root category for the virtual fs. subcategories of the specified category will be included",
+    type=int, default=0
+)
+@click.option(
     "--workers",
     help="Number of workers to handle event queue",
     type=int,

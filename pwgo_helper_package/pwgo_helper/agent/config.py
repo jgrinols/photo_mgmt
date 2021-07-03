@@ -37,6 +37,7 @@ class Configuration():
         self.worker_error_limit = None
         self.virtualfs_remove_empty_dirs = True
         self.initialization_args = None
+        self.virtualfs_category_id = 0
 
     @staticmethod
     def get() -> Configuration:
