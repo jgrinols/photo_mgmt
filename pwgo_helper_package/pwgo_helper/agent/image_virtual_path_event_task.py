@@ -101,7 +101,7 @@ class ImageVirtualPathEventTask(EventTask):
             logger.debug("considering %s for removal...", parent_dir)
             is_root_dir = parent_dir.samefile(AgentConfig.get().virtualfs_root)
             logger.debug("is path the root destination path? %s", is_root_dir)
-            is_empty = len(parent_dir.listdir()) != 0
+            is_empty = len(parent_dir.listdir()) == 0
             logger.debug("is path empty? %s", is_empty)
             remove_parent = not is_root_dir and is_empty
             if remove_parent:
