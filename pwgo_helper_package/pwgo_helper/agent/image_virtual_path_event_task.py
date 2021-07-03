@@ -138,6 +138,15 @@ class ImageVirtualPathEventTask(EventTask):
             await cur.execute("SELECT * FROM image_virtual_paths")
             v_path_rows = await cur.fetchall()
 
+            vfs_root_category_id = AgentConfig.get().virtualfs_category_id
+            def is_in_vfs(uppercats_str):
+                uppercats = [int(c.strip()) for c in uppercats_str.split(",")]
+                return vfs_root_category_id in uppercats
+
+            if vfs_root_category_id:
+                # if there's a root category set then filter the returned rows
+                v_path_rows = [p for p in v_path_rows if is_in_vfs(p["category_uppercats"])]
+
             logger.debug(strings.LOG_VFS_REBUILD_REMOVE(vfs_root))
             if not ProgramConfig.get().dry_run:
                 for file in vfs_root.files():
