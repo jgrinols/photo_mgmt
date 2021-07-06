@@ -50,18 +50,33 @@ class AutoTagger():
     async def autotag_image(self) -> None:
         """initiates the autotagging process for the current image"""
         self.logger.debug("beginning autotagging of %s", self.image.file)
-        face_images = await self._get_face_image_files()
-        tag_coros = []
-        for img, index in face_images:
-            tag_coros.append(self._get_tags_for_face_image(img, index))
+        cfg = AgentConfig.get()
+        async with DbConnectionPool.get().acquire_dict_cursor(db=cfg.pwgo_db_config["name"]) as (cur,_):
+            sql = """
+                SELECT 1
+                FROM piwigo.image_category
+                WHERE image_id = %s AND category_id = %s
+            """
+            await cur.execute(sql, (self.image.id, cfg.auto_tag_proc_alb))
+            existing_proc = await cur.fetchone()
 
-        tag_coros.append(self._get_label_tags())
-        results = await asyncio.gather(*tag_coros)
-        tags = set().union(*results)
-        for tag in tags:
-            if not isinstance(tag, int):
-                raise TypeError()
-        await asyncio.gather(self.add_tags(tags), self._move_image_to_processed())
+        if existing_proc:
+            self.logger.warning("image_id %s already exists in the processed auto-tag album. skipping autotagging."
+                , self.image.id)
+            await self._move_image_to_processed(True)
+        else:
+            face_images = await self._get_face_image_files()
+            tag_coros = []
+            for img, index in face_images:
+                tag_coros.append(self._get_tags_for_face_image(img, index))
+
+            tag_coros.append(self._get_label_tags())
+            results = await asyncio.gather(*tag_coros)
+            tags = set().union(*results)
+            for tag in tags:
+                if not isinstance(tag, int):
+                    raise TypeError()
+            await asyncio.gather(self.add_tags(tags), self._move_image_to_processed())
 
     async def add_implicit_tags(self) -> None:
         """adds any tags that should be added based on implicit tag configuration."""
@@ -278,18 +293,19 @@ class AutoTagger():
         else:
             return [l["Name"] for l in labels]
 
-    async def _move_image_to_processed(self) -> None:
+    async def _move_image_to_processed(self, already_processed: bool = False) -> None:
         """removes the image from the autotag virtual album and adds it to the
         processed virtual album"""
         self.logger.info(strings.LOG_MOVE_IMG(self.image.file))
         if not ProgramConfig.get().dry_run:
             async with DbConnectionPool.get().acquire_dict_cursor(db=AgentConfig.get().pwgo_db_config["name"]) as (cur,conn):
-                ins_sql = """
-                    INSERT INTO image_category (image_id, category_id)
-                    VALUES (%s, %s)
-                """
-                await cur.execute(ins_sql, (self.image.id, AgentConfig.get().auto_tag_proc_alb))
-                await conn.commit()
+                if not already_processed:
+                    ins_sql = """
+                        INSERT INTO image_category (image_id, category_id)
+                        VALUES (%s, %s)
+                    """
+                    await cur.execute(ins_sql, (self.image.id, AgentConfig.get().auto_tag_proc_alb))
+                    await conn.commit()
 
                 del_sql = """
                     DELETE FROM image_category
