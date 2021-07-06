@@ -192,7 +192,7 @@ class ImageMetadataEventTask(EventTask):
                     await tagger.autotag_image()
         if self._write_metadata:
             self.status = "EXEC_MDATA_HANDLER"
-            pwgo_img = PiwigoImage.create(self.image_id, load_metadata=True)
+            pwgo_img = await PiwigoImage.create(self.image_id, load_metadata=True)
             if not ProgramConfig.get().dry_run:
                 with FileMetadataWriter(pwgo_img) as writer:
                     await loop.run_in_executor(None,writer.write)
