@@ -249,7 +249,7 @@ class AutoTagger():
                     WHERE piwigo_image_id = %s and confidence >= %s
                 """
 
-                await cur.execute(sql, self.image.id, AgentConfig.get().min_tag_confidence)
+                await cur.execute(sql, (self.image.id, AgentConfig.get().min_tag_confidence))
                 existing_labels = [l["label"] for l in await cur.fetchall()]
                 existing = len(existing_labels) > 0
 
@@ -398,7 +398,7 @@ class AutoTagger():
                 ON t.name = il.label
                 WHERE t.id = %s AND il.confidence >= %s
             """
-            await cur.execute(sql, tag_id, AgentConfig.get().min_tag_confidence)
+            await cur.execute(sql, (tag_id, AgentConfig.get().min_tag_confidence))
             for img in await cur.fetchall():
                 tagger = await stack.enter_async_context(AutoTagger.create(img["piwigo_image_id"]))
                 await tagger.add_tags([tag_id])
