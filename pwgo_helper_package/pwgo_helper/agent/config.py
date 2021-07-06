@@ -17,6 +17,7 @@ class Configuration():
         self.auto_tag_proc_alb = 126
         self.face_idx_parent_alb = 128
         self.face_idx_albs = []
+        self.min_tag_confidence = 90
 
         self.img_tag_wait_secs = 1
 
