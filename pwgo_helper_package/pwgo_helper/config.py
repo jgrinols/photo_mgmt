@@ -1,10 +1,11 @@
 """container module for Configuration"""
 from __future__ import annotations
+from asyncio.tasks import Task
 
 import logging
 
-from .agent import strings
-from .agent.log_formatter import CustomFormatter
+from . import strings
+from .logging import CustomFormatter, TaskFilter
 
 class Configuration:
     """holds global config values"""
@@ -38,13 +39,14 @@ class Configuration:
     def create_logger(self, name: str) -> logging.Logger:
         """function to generate a logger with given name and the configured verbosity"""
         logger = logging.getLogger(name)
+        logger.addFilter(TaskFilter())
         if not logger.hasHandlers():
             v = self.verbosity
             logger.setLevel(v)
             console_handler = logging.StreamHandler()
             console_handler.setLevel(v)
             console_handler.setFormatter(
-                CustomFormatter("%(asctime)s - %(levelname)s: %(message)s", datefmt='%Y-%m-%d %H:%M:%S.%f')
+                CustomFormatter("%(asctime)s - %(levelname)s - %(taskname)s: %(message)s", datefmt='%Y-%m-%d %H:%M:%S.%f')
             )
             logger.addHandler(console_handler)
         return logger

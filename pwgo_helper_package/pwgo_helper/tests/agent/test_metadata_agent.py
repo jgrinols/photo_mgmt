@@ -8,7 +8,8 @@ from path import Path
 
 from ...agent.metadata_agent import MetadataAgent
 from ...agent.config import Configuration as AgentConfig
-from ...agent import strings
+from ...agent import strings as AgentStrings
+from ... import strings as ProgramStrings
 from ...agent.autotagger import AutoTagger
 from ...agent.image_virtual_path_event_task import ImageVirtualPathEventTask
 
@@ -157,13 +158,13 @@ class TestMetadataAgent:
             for img_id in atag_bload_images:
                 await cur.execute(sql, (img_id, 125))
             await conn.commit()
-        add_face_idx_re = re.compile('^.*('+strings.LOG_ADD_IMG_FACES('.*')+')')
-        vfs_remove_re = re.compile('^.*('+strings.LOG_VFS_REBUILD_REMOVE('.*')+')')
-        vfs_create_re = re.compile('^.*('+strings.LOG_VFS_REBUILD_CREATE('.*')+')')
-        detect_faces_re = re.compile('^.*('+strings.LOG_DETECT_IMG_FACES('.*')+')')
-        move_img_re = re.compile('^.*('+strings.LOG_MOVE_IMG('.*')+')')
-        queue_evt_re = re.compile('^.*('+strings.LOG_QUEUE_EVT+')')
-        handle_sig_re = re.compile('^.*('+strings.LOG_HANDLE_SIG('.*')+')')
+        add_face_idx_re = re.compile('^.*('+AgentStrings.LOG_ADD_IMG_FACES('.*')+')')
+        vfs_remove_re = re.compile('^.*('+AgentStrings.LOG_VFS_REBUILD_REMOVE('.*')+')')
+        vfs_create_re = re.compile('^.*('+AgentStrings.LOG_VFS_REBUILD_CREATE('.*')+')')
+        detect_faces_re = re.compile('^.*('+AgentStrings.LOG_DETECT_IMG_FACES('.*')+')')
+        move_img_re = re.compile('^.*('+AgentStrings.LOG_MOVE_IMG('.*')+')')
+        queue_evt_re = re.compile('^.*('+AgentStrings.LOG_QUEUE_EVT+')')
+        handle_sig_re = re.compile('^.*('+AgentStrings.LOG_HANDLE_SIG('.*')+')')
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             vfs_root_path = Path(tmp_dir).joinpath("vfs")
@@ -212,7 +213,7 @@ class TestMetadataAgent:
                     add_face_idx_logs = [ m.group(1) for m in add_face_idx_logs if m ]
                     assert len(face_idx_images) == len(add_face_idx_logs)
                     for img in face_idx_images:
-                        assert strings.LOG_ADD_IMG_FACES(img) in add_face_idx_logs
+                        assert AgentStrings.LOG_ADD_IMG_FACES(img) in add_face_idx_logs
 
                     # verification of virtualfs rebuild
                     vfs_remove_logs = [ vfs_remove_re.match(s) for s in captured ]
@@ -240,8 +241,8 @@ class TestMetadataAgent:
                         atag_fnames = await cur.fetchall()
 
                     for img in atag_fnames:
-                        assert strings.LOG_DETECT_IMG_FACES(img["file"]) in detect_faces_logs
-                        assert strings.LOG_MOVE_IMG(img["file"]) in move_img_logs
+                        assert AgentStrings.LOG_DETECT_IMG_FACES(img["file"]) in detect_faces_logs
+                        assert AgentStrings.LOG_MOVE_IMG(img["file"]) in move_img_logs
 
                     # test handling of new face index image
                     img_id = 207
@@ -277,7 +278,7 @@ class TestMetadataAgent:
                     assert len(evt_queue_logs) == 2
                     add_faces_logs = [ add_face_idx_re.match(s) for s in captured ]
                     add_faces_logs = [ m.group(1) for m in add_faces_logs if m ]
-                    assert strings.LOG_ADD_IMG_FACES(img["file"]) in add_faces_logs
+                    assert AgentStrings.LOG_ADD_IMG_FACES(img["file"]) in add_faces_logs
 
                 except Exception:
                     print("external process output:\n")
@@ -292,7 +293,7 @@ class TestMetadataAgent:
                     handle_sig_logs = [ m.group(1) for m in handle_sig_logs if m ]
                     assert len(handle_sig_logs) == 1
                     # pylint: disable=no-member
-                    assert strings.LOG_HANDLE_SIG(signal.SIGQUIT.name) in handle_sig_logs
+                    assert AgentStrings.LOG_HANDLE_SIG(signal.SIGQUIT.name) in handle_sig_logs
 
                 except Exception:
                     print("external process output:\n")
@@ -360,7 +361,7 @@ class TestMetadataAgent:
                     # verify program is still running
                     assert not agent_proc.returncode
                     captured = capfd.readouterr().err.splitlines()
-                    db_init_re = re.compile('^.*('+strings.LOG_INITIALIZE_DB+')')
+                    db_init_re = re.compile('^.*('+AgentStrings.LOG_INITIALIZE_DB+')')
                     db_init_logs = [ db_init_re.match(s) for s in captured ]
                     db_init_logs = [ m.group(1) for m in db_init_logs if m ]
                     assert len(db_init_logs) == 1
@@ -418,19 +419,19 @@ class TestMetadataAgent:
             try:
                 captured = capfd.readouterr().err.splitlines()
                 assert not agent_proc.returncode
-                re_str = '^.*('+strings.LOG_PRG_OPT('verbosity', os.environ["PWGO_HLPR_VERBOSITY"])+')'
+                re_str = '^.*('+ProgramStrings.LOG_PRG_OPT('verbosity', os.environ["PWGO_HLPR_VERBOSITY"])+')'
                 prg_verb_opt_re = re.compile(re_str)
                 prg_verb_opt_logs = [ prg_verb_opt_re.match(s) for s in captured ]
                 prg_verb_opt_logs = [ m.group(1) for m in prg_verb_opt_logs if m ]
                 assert len(prg_verb_opt_logs) == 1
 
-                re_str = '^.*('+strings.LOG_AGNT_OPT('workers', os.environ["PWGO_HLPR_AGENT_WORKERS"])+')'
+                re_str = '^.*('+AgentStrings.LOG_AGNT_OPT('workers', os.environ["PWGO_HLPR_AGENT_WORKERS"])+')'
                 agnt_wkrs_opt_re = re.compile(re_str)
                 agnt_wkrs_opt_logs = [ agnt_wkrs_opt_re.match(s) for s in captured ]
                 agnt_wkrs_opt_logs = [ m.group(1) for m in agnt_wkrs_opt_logs if m ]
                 assert len(agnt_wkrs_opt_logs) == 1
 
-                agnt_initdb_opt_re = re.compile('^.*('+strings.LOG_AGNT_OPT('initialize_db', True)+')')
+                agnt_initdb_opt_re = re.compile('^.*('+AgentStrings.LOG_AGNT_OPT('initialize_db', True)+')')
                 agnt_initdb_opt_logs = [ agnt_initdb_opt_re.match(s) for s in captured ]
                 agnt_initdb_opt_logs = [ m.group(1) for m in agnt_initdb_opt_logs if m ]
                 assert len(agnt_initdb_opt_logs) == 1
