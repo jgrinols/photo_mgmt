@@ -1,5 +1,5 @@
 """container module for TestImageTagEventTask"""
-import asyncio,contextlib
+import asyncio
 from unittest.mock import patch,MagicMock
 
 import pytest
@@ -15,7 +15,11 @@ from ...agent.config import Configuration as AgentConfig
 class TestImageMetadataEventTask:
     """Tests for the ImageTagEventTask class"""
     @pytest.mark.asyncio
-    async def test_reset_delay(self):
+    @patch.object(FileMetadataWriter,"__exit__")
+    @patch.object(PiwigoImage,"create")
+    @patch.object(FileMetadataWriter,"__enter__")
+    @patch.object(AutoTagger,"create")
+    async def test_reset_delay(self, mck_atag_create, *_):
         """testing behvior when a subsequent img tag event is handled during wait period"""
         #pylint: disable=protected-access
         evt_row1 = ImageEventRow(image_id=1,
@@ -26,16 +30,7 @@ class TestImageMetadataEventTask:
         assert isinstance(tag_event_handler, ImageMetadataEventTask)
         assert len(ImageMetadataEventTask.get_pending_tasks()) == 1
 
-        with contextlib.ExitStack() as stack:
-            mck_enter = stack.enter_context(patch.object(FileMetadataWriter,"__enter__"))
-            mck_enter.return_value = MagicMock(spec=FileMetadataWriter)
-            _ = stack.enter_context(patch.object(FileMetadataWriter,"__exit__"))
-            _ = stack.enter_context(patch.object(PiwigoImage,"create"))
-            mck_atag_create = stack.enter_context(patch.object(AutoTagger,"create"))
-            mck_atag_create.return_value.__aenter__.return_value = MagicMock(spec=AutoTagger)
-            mck_reset = stack.enter_context(
-                patch.object(ImageMetadataEventTask, "_reset_delay", wraps=tag_event_handler._reset_delay)
-            )
+        with patch.object(ImageMetadataEventTask, "_reset_delay", wraps=tag_event_handler._reset_delay) as mck_reset:
             evt_row2 = ImageEventRow(image_id=1,
                 table_name="image_tag",
                 table_primary_key=[1,2],
@@ -49,122 +44,121 @@ class TestImageMetadataEventTask:
             mck_atag_create.return_value.__aenter__.return_value.add_implicit_tags.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_reset_after_task_start(self):
+    @patch.object(FileMetadataWriter,"__exit__")
+    @patch.object(PiwigoImage,"create")
+    @patch.object(FileMetadataWriter,"__enter__")
+    @patch.object(AutoTagger,"create")
+    async def test_reset_after_task_start(self, mck_atag_create, *_):
         """test that attempting to reset the delay timer after the work task
         has started raises an error"""
         #pylint: disable=protected-access
-        with patch.object(AutoTagger,"create") as mck_atag_create:
-            mck_atag_create.return_value.__aenter__.return_value = MagicMock(spec=AutoTagger)
-            evt_row1 = ImageEventRow(image_id=1,
-                table_name="image_tag",
-                table_primary_key=[1,1],
-                operation="INSERT")
-            tag_event_handler = await EventTask.get_event_task(evt_row1)
-            tag_event_handler.schedule_start()
-            await asyncio.sleep(AgentConfig.get().img_tag_wait_secs + 1)
-            with pytest.raises(RuntimeError, match="attempted to reset delay after execution has begun"):
-                tag_event_handler._reset_delay(delay=1)
+        mck_atag_create.return_value.__aenter__.return_value = MagicMock(spec=AutoTagger)
+        evt_row1 = ImageEventRow(image_id=1,
+            table_name="image_tag",
+            table_primary_key=[1,1],
+            operation="INSERT")
+        tag_event_handler = await EventTask.get_event_task(evt_row1)
+        tag_event_handler.schedule_start()
+        await asyncio.sleep(AgentConfig.get().img_tag_wait_secs + 1)
+        with pytest.raises(RuntimeError, match="attempted to reset delay after execution has begun"):
+            tag_event_handler._reset_delay(delay=1)
 
     @pytest.mark.asyncio
-    async def test_cancel_after_task_start(self):
+    @patch.object(FileMetadataWriter,"__exit__")
+    @patch.object(PiwigoImage,"create")
+    @patch.object(FileMetadataWriter,"__enter__")
+    @patch.object(AutoTagger,"create")
+    async def test_cancel_after_task_start(self, mck_atag_create, mck_enter, *_):
         """test that attempting to cancel after the work task
         has started raises an error"""
-        with contextlib.ExitStack() as stack:
-            mck_enter = stack.enter_context(patch.object(FileMetadataWriter,"__enter__"))
-            mck_enter.return_value = MagicMock(spec=FileMetadataWriter)
-            _ = stack.enter_context(patch.object(FileMetadataWriter,"__exit__"))
-            _ = stack.enter_context(patch.object(PiwigoImage,"create"))
-            mck_atag_create = stack.enter_context(patch.object(AutoTagger,"create"))
-            mck_atag_create.return_value.__aenter__.return_value = MagicMock(spec=AutoTagger)
-            evt_row1 = ImageEventRow(image_id=1,
-                table_name="image_tag",
-                table_primary_key=[1,1],
-                operation="INSERT")
-            tag_event_handler = await EventTask.get_event_task(evt_row1)
-            tag_event_handler.schedule_start()
-            await asyncio.sleep(AgentConfig.get().img_tag_wait_secs + 1)
-            with pytest.raises(RuntimeError, match="attempted to cancel image tag event task after execution has begun"):
-                tag_event_handler.cancel()
+        mck_enter.return_value = MagicMock(spec=FileMetadataWriter)
+        mck_atag_create.return_value.__aenter__.return_value = MagicMock(spec=AutoTagger)
+        evt_row1 = ImageEventRow(image_id=1,
+            table_name="image_tag",
+            table_primary_key=[1,1],
+            operation="INSERT")
+        tag_event_handler = await EventTask.get_event_task(evt_row1)
+        tag_event_handler.schedule_start()
+        await asyncio.sleep(AgentConfig.get().img_tag_wait_secs + 1)
+        with pytest.raises(RuntimeError, match="attempted to cancel image tag event task after execution has begun"):
+            tag_event_handler.cancel()
 
     @pytest.mark.asyncio
-    async def test_awaitable(self):
+    @patch.object(FileMetadataWriter,"__exit__")
+    @patch.object(PiwigoImage,"create")
+    @patch.object(FileMetadataWriter,"__enter__")
+    @patch.object(AutoTagger,"create")
+    async def test_awaitable(self, mck_atag_create, mck_enter, *_):
         """tests the basic functionality of the ImageTagEventTask awaitable method
         and it's status progression"""
-        with contextlib.ExitStack() as stack:
-            mck_enter = stack.enter_context(patch.object(FileMetadataWriter,"__enter__"))
-            mck_enter.return_value = MagicMock(spec=FileMetadataWriter)
-            _ = stack.enter_context(patch.object(FileMetadataWriter,"__exit__"))
-            _ = stack.enter_context(patch.object(PiwigoImage,"create"))
-            mck_atag_create = stack.enter_context(patch.object(AutoTagger,"create"))
-            mck_atag_create.return_value.__aenter__.return_value = MagicMock(spec=AutoTagger)
-            evt_row1 = ImageEventRow(image_id=1,
-                table_name="image_tag",
-                table_primary_key=[1,1],
-                operation="INSERT")
-            tag_event_handler = await EventTask.get_event_task(evt_row1)
-            assert tag_event_handler.status == "INIT"
-            tag_event_handler.schedule_start()
-            await asyncio.sleep(0)
-            assert tag_event_handler.status == "WAIT"
-            await asyncio.sleep(AgentConfig.get().img_tag_wait_secs + 1)
-            res = await tag_event_handler
-            assert tag_event_handler.status == "DONE"
-            mck_atag_create.return_value.__aenter__.return_value.add_implicit_tags.assert_awaited_once()
-            assert res
+        mck_enter.return_value = MagicMock(spec=FileMetadataWriter)
+        mck_atag_create.return_value.__aenter__.return_value = MagicMock(spec=AutoTagger)
+        evt_row1 = ImageEventRow(image_id=1,
+            table_name="image_tag",
+            table_primary_key=[1,1],
+            operation="INSERT")
+        tag_event_handler = await EventTask.get_event_task(evt_row1)
+        assert tag_event_handler.status == "INIT"
+        tag_event_handler.schedule_start()
+        await asyncio.sleep(0)
+        assert tag_event_handler.status == "WAIT"
+        await asyncio.sleep(AgentConfig.get().img_tag_wait_secs + 1)
+        res = await tag_event_handler
+        assert tag_event_handler.status == "DONE"
+        mck_atag_create.return_value.__aenter__.return_value.add_implicit_tags.assert_awaited_once()
+        assert res
 
     @pytest.mark.asyncio
-    async def test_callback(self):
+    @patch.object(FileMetadataWriter,"__exit__")
+    @patch.object(PiwigoImage,"create")
+    @patch.object(FileMetadataWriter,"__enter__")
+    @patch.object(AutoTagger,"create")
+    async def test_callback(self, mck_atag_create, mck_enter, *_):
         """tests the functioning of the event task callbacks"""
-        with contextlib.ExitStack() as stack:
-            mck_enter = stack.enter_context(patch.object(FileMetadataWriter,"__enter__"))
-            mck_enter.return_value = MagicMock(spec=FileMetadataWriter)
-            _ = stack.enter_context(patch.object(FileMetadataWriter,"__exit__"))
-            _ = stack.enter_context(patch.object(PiwigoImage,"create"))
-            mck_atag_create = stack.enter_context(patch.object(AutoTagger,"create"))
-            mck_atag_create.return_value.__aenter__.return_value = MagicMock(spec=AutoTagger)
-            evt_row1 = ImageEventRow(image_id=1,
-                table_name="image_tag",
-                table_primary_key=[1,1],
-                operation="INSERT")
-            tag_event_handler = await EventTask.get_event_task(evt_row1)
-            assert tag_event_handler.status == "INIT"
-            tag_event_handler.schedule_start()
-            mck_callback = MagicMock()
-            tag_event_handler.attach_callback(mck_callback)
-            mck_callback.assert_not_called()
-            res = await tag_event_handler
-            mck_callback.assert_called_once()
-            assert isinstance(mck_callback.call_args[0][0],ImageMetadataEventTask)
-            assert res
+        mck_enter.return_value = MagicMock(spec=FileMetadataWriter)
+        mck_atag_create.return_value.__aenter__.return_value = MagicMock(spec=AutoTagger)
+        evt_row1 = ImageEventRow(image_id=1,
+            table_name="image_tag",
+            table_primary_key=[1,1],
+            operation="INSERT")
+        tag_event_handler = await EventTask.get_event_task(evt_row1)
+        assert tag_event_handler.status == "INIT"
+        tag_event_handler.schedule_start()
+        mck_callback = MagicMock()
+        tag_event_handler.attach_callback(mck_callback)
+        mck_callback.assert_not_called()
+        res = await tag_event_handler
+        mck_callback.assert_called_once()
+        assert isinstance(mck_callback.call_args[0][0],ImageMetadataEventTask)
+        assert res
 
     @pytest.mark.asyncio
-    async def test_add_remove_tag(self):
+    @patch.object(FileMetadataWriter,"__exit__")
+    @patch.object(PiwigoImage,"create")
+    @patch.object(FileMetadataWriter,"__enter__")
+    @patch.object(AutoTagger,"create")
+    async def test_add_remove_tag(self, mck_atag_create, mck_enter, *_):
         """tests that adding a tag then removing the same tag does not cause the tagging
         handler function to be called"""
-        with contextlib.ExitStack() as stack:
-            mck_enter = stack.enter_context(patch.object(FileMetadataWriter,"__enter__"))
-            mck_enter.return_value = MagicMock(spec=FileMetadataWriter)
-            _ = stack.enter_context(patch.object(FileMetadataWriter,"__exit__"))
-            _ = stack.enter_context(patch.object(PiwigoImage,"create"))
-            mck_atag_create = stack.enter_context(patch.object(AutoTagger,"create"))
-            mck_atag_create.return_value.__aenter__.return_value = MagicMock(spec=AutoTagger)
-            evt_row1 = ImageEventRow(image_id=1,
-                table_name="image_tag",
-                table_primary_key=[1,1],
-                operation="INSERT")
-            evt_row2 = ImageEventRow(image_id=1,
-                table_name="image_tag",
-                table_primary_key=[1,1],
-                operation="DELETE")
-            tag_event_handler1 = await EventTask.get_event_task(evt_row1)
-            assert tag_event_handler1.status == "INIT"
-            tag_event_handler1.schedule_start()
-            await asyncio.sleep(0)
-            tag_event_handler2 = await EventTask.get_event_task(evt_row2)
-            assert tag_event_handler2 is tag_event_handler1
-            res = await tag_event_handler1
-            assert res
-            mck_atag_create.return_value.__aenter__.return_value.add_implicit_tags.assert_not_awaited()
+        mck_enter.return_value = MagicMock(spec=FileMetadataWriter)
+        mck_atag_create.return_value.__aenter__.return_value = MagicMock(spec=AutoTagger)
+        evt_row1 = ImageEventRow(image_id=1,
+            table_name="image_tag",
+            table_primary_key=[1,1],
+            operation="INSERT")
+        evt_row2 = ImageEventRow(image_id=1,
+            table_name="image_tag",
+            table_primary_key=[1,1],
+            operation="DELETE")
+        tag_event_handler1 = await EventTask.get_event_task(evt_row1)
+        assert tag_event_handler1.status == "INIT"
+        tag_event_handler1.schedule_start()
+        await asyncio.sleep(0)
+        tag_event_handler2 = await EventTask.get_event_task(evt_row2)
+        assert tag_event_handler2 is tag_event_handler1
+        res = await tag_event_handler1
+        assert res
+        mck_atag_create.return_value.__aenter__.return_value.add_implicit_tags.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_image_cat_basic(self):
@@ -206,61 +200,60 @@ class TestImageMetadataEventTask:
             mck_atag_create.return_value.__aenter__.return_value.autotag_image.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_img_tag_and_cat(self):
+    @patch.object(FileMetadataWriter,"__exit__")
+    @patch.object(PiwigoImage,"create")
+    @patch.object(FileMetadataWriter,"__enter__")
+    @patch.object(AutoTagger,"create")
+    async def test_img_tag_and_cat(self, mck_atag_create, mck_enter, *_):
         """tests proper functioning when handling both an image tag and category event"""
-        with contextlib.ExitStack() as stack:
-            mck_enter = stack.enter_context(patch.object(FileMetadataWriter,"__enter__"))
-            mck_enter.return_value = MagicMock(spec=FileMetadataWriter)
-            _ = stack.enter_context(patch.object(FileMetadataWriter,"__exit__"))
-            _ = stack.enter_context(patch.object(PiwigoImage,"create"))
-            mck_atag_create = stack.enter_context(patch.object(AutoTagger,"create"))
-            mck_atag_create.return_value.__aenter__.return_value = MagicMock(spec=AutoTagger)
-            evt_row1 = ImageEventRow(image_id=1,
-                table_name="image_tag",
-                table_primary_key=[1,1],
-                operation="INSERT")
-            evt_row2 = ImageEventRow(image_id=1,
-                table_name="image_category",
-                table_primary_key=[1,125],
-                operation="INSERT")
-            mdata_event_handler = await EventTask.get_event_task(evt_row1)
-            assert mdata_event_handler.status == "INIT"
-            mdata_event_handler.schedule_start()
-            await asyncio.sleep(0)
-            await EventTask.get_event_task(evt_row2)
-            res = await mdata_event_handler
-            assert res
-            mck_atag_create.return_value.__aenter__.return_value.add_implicit_tags.assert_awaited_once()
-            mck_atag_create.return_value.__aenter__.return_value.autotag_image.assert_awaited_once()
+        mck_enter.return_value = MagicMock(spec=FileMetadataWriter)
+        mck_atag_create.return_value.__aenter__.return_value = MagicMock(spec=AutoTagger)
+        evt_row1 = ImageEventRow(image_id=1,
+            table_name="image_tag",
+            table_primary_key=[1,1],
+            operation="INSERT")
+        evt_row2 = ImageEventRow(image_id=1,
+            table_name="image_category",
+            table_primary_key=[1,125],
+            operation="INSERT")
+        mdata_event_handler = await EventTask.get_event_task(evt_row1)
+        assert mdata_event_handler.status == "INIT"
+        mdata_event_handler.schedule_start()
+        await asyncio.sleep(0)
+        await EventTask.get_event_task(evt_row2)
+        res = await mdata_event_handler
+        assert res
+        mck_atag_create.return_value.__aenter__.return_value.add_implicit_tags.assert_awaited_once()
+        mck_atag_create.return_value.__aenter__.return_value.autotag_image.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_img_mdata(self):
+    @patch.object(FileMetadataWriter,"__exit__")
+    @patch.object(PiwigoImage,"create")
+    @patch.object(AutoTagger,"create")
+    @patch.object(FileMetadataWriter,"__enter__")
+    async def test_img_mdata(self, mck_enter, *_):
         """tests basic functioning of metadata handling"""
-        with contextlib.ExitStack() as stack:
-            mck_enter = stack.enter_context(patch.object(FileMetadataWriter,"__enter__"))
-            mck_enter.return_value = MagicMock(spec=FileMetadataWriter)
-            _mck_exit = stack.enter_context(patch.object(FileMetadataWriter,"__exit__"))
-            _mck_img_create = stack.enter_context(patch.object(PiwigoImage,"create"))
-            evt_row1 = ImageEventRow(image_id=1,
-                table_name="images",
-                table_primary_key=[1],
-                operation="UPDATE",
-                before={
-                    "name": "before_nm",
-                    "comment": "before_comment",
-                    "author": "before_author",
-                    "date_creation": "before_date_creation"
-                },
-                after={
-                    "name": "after_nm",
-                    "comment": "after_comment",
-                    "author": "after_author",
-                    "date_creation": "after_date_creation"
-                })
-            mdata_event_handler = await EventTask.get_event_task(evt_row1)
-            assert mdata_event_handler.status == "INIT"
-            mdata_event_handler.schedule_start()
-            await asyncio.sleep(0)
-            res = await mdata_event_handler
-            assert res
-            mck_enter.return_value.write.assert_called_once()
+        mck_enter.return_value = MagicMock(spec=FileMetadataWriter)
+        evt_row1 = ImageEventRow(image_id=1,
+            table_name="images",
+            table_primary_key=[1],
+            operation="UPDATE",
+            before={
+                "name": "before_nm",
+                "comment": "before_comment",
+                "author": "before_author",
+                "date_creation": "before_date_creation"
+            },
+            after={
+                "name": "after_nm",
+                "comment": "after_comment",
+                "author": "after_author",
+                "date_creation": "after_date_creation"
+            })
+        mdata_event_handler = await EventTask.get_event_task(evt_row1)
+        assert mdata_event_handler.status == "INIT"
+        mdata_event_handler.schedule_start()
+        await asyncio.sleep(0)
+        res = await mdata_event_handler
+        assert res
+        mck_enter.return_value.write.assert_called_once()
