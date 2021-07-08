@@ -44,15 +44,19 @@ class ImageMetadataEventTask(EventTask):
     @classmethod
     def resolve_event_task(cls, evt: ImageEventRow) -> asyncio.Future:
         # pylint: disable=protected-access
+        logger = ProgramConfig.get().create_logger(__name__)
         result_fut: asyncio.Future = None
         existing_task = next((t for t in cls._pending_tasks if t.image_id == evt.image_id), None)
         if existing_task:
+            logger.debug("found existing task for image %s", evt.image_id)
             if existing_task.is_waiting():
+                logger.debug("adding event to existing task for image %s", evt.image_id)
                 existing_task.add_event(evt)
 
                 result_fut = asyncio.Future()
                 result_fut.set_result(existing_task)
             else:
+                logger.debug("existing task has begun executing. waiting and creating new task for image %s", evt.image_id)
                 async def wait_for_current_task():
                     await existing_task
                     new_task = ImageMetadataEventTask(evt.image_id)
@@ -62,6 +66,7 @@ class ImageMetadataEventTask(EventTask):
                 result_fut = asyncio.ensure_future(wait_for_current_task())
 
         else:
+            logger.debug("no exising task found for image %s. creating new task.", evt.image_id)
             new_task = ImageMetadataEventTask(evt.image_id)
             new_task.add_event(evt)
             result_fut = asyncio.Future()

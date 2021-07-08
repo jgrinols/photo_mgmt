@@ -21,9 +21,11 @@ class EventTask(ABC):
         """returns a list of table names that the given EventTask type is responsible for"""
 
     @staticmethod
-    def get_logger():
+    def get_logger(name=None):
         """gets a logger..."""
-        return ProgramConfig.get().create_logger(__name__)
+        if not name:
+            name = __name__
+        return ProgramConfig.get().create_logger(name)
 
     @classmethod
     def register_table_task_types(cls, sub_classes):
@@ -56,6 +58,7 @@ class EventTask(ABC):
         """gets concrete task instance"""
 
     def __init__(self):
+        self._logger = EventTask.get_logger(type(self).__name__)
         self.status = "INIT"
         self._callbacks = []
         self.__class__.get_pending_tasks().append(self)
