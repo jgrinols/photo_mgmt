@@ -142,6 +142,7 @@ class ImageMetadataEventTask(EventTask):
         else:
             raise ValueError("unrecognized tag event operation")
 
+        self._write_metadata = True
         self._included_tags[tag_id] += increment
 
     def _add_category_event(self, category_id, oper):
