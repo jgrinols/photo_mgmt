@@ -4,10 +4,12 @@ from contextlib import ExitStack
 from pyexiv2 import ImageData
 
 from .pwgo_image import PiwigoImage
+from ..config import Configuration as ProgramConfig
 
 class FileMetadataWriter():
     """Synchronizes Piwigo image metadata from the database into exif/iptc fields in the physical file"""
     def __init__(self, img: PiwigoImage):
+        self._logger = ProgramConfig.get().create_logger(__name__)
         self.image = img
         self._exit_stack = None
         self._img_data = None
@@ -29,5 +31,7 @@ class FileMetadataWriter():
         usage:
         with FileMetadataWriter(pwgo_img) as writer:
             writer.write()"""
+        self._logger.debug("writing metadata to file")
         self._img_data.modify_iptc(self.image.metadata.get_iptc_dict())
+        # pylint: disable=no-member
         self._img_file.write(self._img_data.get_bytes())
