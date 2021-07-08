@@ -18,6 +18,7 @@ from .pwgo_image import PiwigoImage
 from .db_connection_pool import DbConnectionPool as DbPool
 from .image_virtual_path_event_task import ImageVirtualPathEventTask
 from .utilities import parse_sql
+from ..asyncio import get_task
 
 class MetadataAgent():
     """The main driver of the program"""
@@ -52,14 +53,19 @@ class MetadataAgent():
         loop.add_signal_handler(signal.SIGTERM, self._signal_handler, signal.SIGTERM)
         loop.add_signal_handler(signal.SIGQUIT, self._signal_handler, signal.SIGQUIT)
         # do an initial sync of the face index
-        face_idx_job = AutoTagger.sync_face_index()
+        face_idx_task = asyncio.create_task(AutoTagger.sync_face_index())
+        face_idx_task.set_name("init-face-sync")
         # rebuild the virtualfs
-        virtualfs_job = ImageVirtualPathEventTask.rebuild_virtualfs()
+        virtualfs_task = asyncio.create_task(ImageVirtualPathEventTask.rebuild_virtualfs())
+        virtualfs_task.set_name("init-rebuild-vfs")
 
-        await asyncio.gather(face_idx_job, virtualfs_job)
+        await asyncio.gather(face_idx_task, virtualfs_task)
 
-        self._evt_dispatcher = await EventDispatcher.create(a_cfg.workers, a_cfg.worker_error_limit)
+        dispch_create_task = asyncio.create_task(EventDispatcher.create(a_cfg.workers, a_cfg.worker_error_limit))
+        dispch_create_task.set_name("init-dispatcher")
+        self._evt_dispatcher = await dispch_create_task
         self._evt_monitor_task = await self._start_event_monitor()
+        self._evt_monitor_task.set_name("event-monitor")
         self._is_running = True
         await self.process_autotag_backlog()
 
@@ -68,10 +74,12 @@ class MetadataAgent():
         try:
             if not self._stopping_task:
                 self._stopping_task = asyncio.tasks.current_task()
+                self._stopping_task.set_name(strings.AGNT_STOP_TASK_NM)
             if self._evt_monitor_task and not self._evt_monitor_task.done():
                 self._evt_monitor_task.request_cancel = True
             if self._evt_dispatcher and self._evt_dispatcher.state == "RUNNING":
                 stop_dispatch_task = asyncio.create_task(self._evt_dispatcher.stop(force=force))
+                stop_dispatch_task.set_name(strings.DSPCH_STOP_TASK_NM)
             else:
                 stop_dispatch_task = Future()
                 stop_dispatch_task.set_result(True)
@@ -107,6 +115,7 @@ class MetadataAgent():
         self._binlog_stream = BinLogStreamReader(**blog_args)
 
         mon_task = asyncio.create_task(self._event_monitor())
+        mon_task.set_name("agent-event-monitor")
         mon_task.request_cancel = False
         await asyncio.sleep(0)
         return mon_task
@@ -123,6 +132,7 @@ class MetadataAgent():
                     self._logger.exception(str(err))
                 finally:
                     self._stopping_task = asyncio.create_task(self.stop(force=True))
+                    self._stopping_task.set_name(strings.AGNT_STOP_TASK_NM)
                     raise RuntimeError("dispatcher is not running...stopping metadata agent")
 
             for evt in self._binlog_stream:
@@ -158,7 +168,9 @@ class MetadataAgent():
         autotag_tasks = []
         for img in tag_imgs:
             async with AutoTagger.create(img) as tagger:
-                autotag_tasks.append(asyncio.create_task(tagger.autotag_image()))
+                tsk = asyncio.create_task(tagger.autotag_image())
+                tsk.set_name(f"autotag-blog-{img.file}")
+                autotag_tasks.append(tsk)
         await asyncio.gather(*autotag_tasks)
 
         async def add_img_tags(img_id, tag_ids):
@@ -295,6 +307,7 @@ def agent_entry(**kwargs):
 
     logger.info("metadata_agent entry")
     async def exec_metadata_agent(**kwargs):
+        asyncio.current_task().set_name("run-agent")
         logger.debug("initializing database connection pool...")
         await DbPool.initialize(
             kwargs["pwgo_db_host"],
@@ -342,5 +355,6 @@ def agent_entry(**kwargs):
 
     loop = asyncio.get_event_loop()
     loop.set_debug(kwargs["debug"])
+    loop.set_task_factory(get_task)
     loop.run_until_complete(exec_metadata_agent(**kwargs))
     logger.info("metadata agent exit stage left")

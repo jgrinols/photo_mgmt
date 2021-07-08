@@ -128,6 +128,7 @@ class EventDispatcher():
 
     def get_results(self):
         """gets a dictionary containing results for all workers. Raises any exception results"""
+        #pylint: disable=broad-except
         results = []
         exceptions = []
         for worker in self.workers:
@@ -135,7 +136,6 @@ class EventDispatcher():
                 result = worker.result()
             except CancelledError:
                 result = "CANCELLED"
-            #pylint: disable=broad-except
             except Exception as err:
                 exceptions.append({
                     "worker_name": worker.get_name(),
@@ -158,25 +158,24 @@ class EventDispatcher():
         if not isinstance(evt, DatabaseEventRow):
             raise TypeError("evt must be an instance of DatabaseEvent")
 
-        task = asyncio.tasks.current_task()
-        self.logger.debug("%s entering process_event", task.get_name())
+        self.logger.debug("entering process_event")
 
         if not self._delay_dispatch_task.done():
-            self.logger.debug("%s: waiting for delay dispatch task to complete", task.get_name())
+            self.logger.debug("waiting for delay dispatch task to complete")
         await self._delay_dispatch_task
-        self.logger.debug("%s: proceeding to process event", task.get_name())
+        self.logger.debug("proceeding to process event")
 
         if evt.table_name == "image_category" and evt.db_event_type in ["INSERT","DELETE"]:
             if evt.table_primary_key[1] in AgentConfig.get().face_idx_albs:
-                self.logger.debug("%s: Handling face index change--setting delay dispatch task", task.get_name())
+                self.logger.debug("Handling face index change--setting delay dispatch task")
                 self._delay_dispatch_task = Future()
                 await AutoTagger.sync_face_index()
-                self.logger.debug("%s: Face index sync complete--setting delay dispatch task completion", task.get_name())
+                self.logger.debug("Face index sync complete--setting delay dispatch task completion")
                 self._delay_dispatch_task.set_result(True)
 
         evt_handler = await EventTask.get_event_task(evt)
         if evt_handler:
-            self.logger.debug("%s: Scheduling event handler %s", task.get_name(), type(evt_handler).__name__)
+            self.logger.debug("Scheduling event handler %s", type(evt_handler).__name__)
             evt_handler.schedule_start()
             result = await evt_handler
             return result
@@ -193,17 +192,17 @@ class EventDispatcher():
             evt = await self._evt_queue.get()
             try:
                 task.worker_status = "DISPATCHED"
-                self.logger.debug("%s: processing new event", task.get_name())
+                self.logger.debug("processing new event")
                 beg = perf_counter()
                 await self.process_event(evt)
                 end = perf_counter()
                 self._evt_queue.task_done()
-                self.logger.debug("%s: processed event in %s", task.get_name(), end-beg)
+                self.logger.debug("processed event in %s", end-beg)
 
             #pylint: disable=broad-except
             except Exception as error:
                 self._error_cnt += 1
-                self.logger.exception("%s encountered an error", task.get_name())
+                self.logger.exception("encountered an error")
                 # handle case where we've exceeded error limit
                 if self._error_cnt >= self._error_limit:
                     self.logger.info("error count %s exceeds error limit of %s. Stopping dispatcher."
