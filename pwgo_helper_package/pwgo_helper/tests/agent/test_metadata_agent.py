@@ -1,17 +1,23 @@
 """container module for TestMetadataAgent"""
 # pylint: disable=protected-access
 import json, asyncio, os, subprocess, re, signal, logging, tempfile
-from unittest.mock import MagicMock, patch, mock_open
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch, mock_open
+from contextlib import ExitStack
 
 import pytest
 from path import Path
+from pymysqlreplication import BinLogStreamReader
+from pymysqlreplication.row_event import WriteRowsEvent
 
 from ...agent.metadata_agent import MetadataAgent
+from ...config import Configuration as ProgramConfig
 from ...agent.config import Configuration as AgentConfig
 from ...agent import strings as AgentStrings
 from ... import strings as ProgramStrings
 from ...agent.autotagger import AutoTagger
 from ...agent.image_virtual_path_event_task import ImageVirtualPathEventTask
+from ...agent.image_metadata_event_task import ImageMetadataEventTask
 
 MODULE_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -439,3 +445,108 @@ class TestMetadataAgent:
                 print("external process output:\n")
                 print(*captured, sep="\n")
                 raise
+
+    @pytest.mark.asyncio
+    async def test_multi_event_multi_row(self, mocker):
+        """this tests a particular scenario that was causing problems with properly
+        reusing an existing image metadata task"""
+        mck_write_evt1 = MagicMock(spec=WriteRowsEvent)
+        setattr(mck_write_evt1, "table", "pwgo_message")
+        evt1_row1_msg = { "image_id": 999, "table_name": "image_tag", "table_primary_key": [999, 50], "operation": "DELETE"}
+        evt1_row2_msg = evt1_row1_msg.copy()
+        evt1_row2_msg["table_primary_key"] = [evt1_row1_msg["image_id"], 51]
+        evt1_row3_msg = evt1_row1_msg.copy()
+        evt1_row3_msg["table_primary_key"] = [evt1_row1_msg["image_id"], 52]
+        evt1_row4_msg = evt1_row1_msg.copy()
+        evt1_row4_msg["table_primary_key"] = [evt1_row1_msg["image_id"], 53]
+        mck_write_evt1.rows = [
+            { "values": { "id": 100, "message_timestamp": datetime.fromisoformat("2021-01-01 10:05:36")
+                , "message_type": "IMG_METADATA", "message": json.dumps(evt1_row1_msg) }},
+            { "values": { "id": 101, "message_timestamp": datetime.fromisoformat("2021-01-01 10:05:36")
+                , "message_type": "IMG_METADATA", "message": json.dumps(evt1_row2_msg) }},
+            { "values": { "id": 102, "message_timestamp": datetime.fromisoformat("2021-01-01 10:05:36")
+                , "message_type": "IMG_METADATA", "message": json.dumps(evt1_row3_msg) }},
+            { "values": { "id": 109, "message_timestamp": datetime.fromisoformat("2021-01-01 10:05:36")
+                , "message_type": "IMG_METADATA", "message": json.dumps(evt1_row4_msg) }}
+        ]
+        mck_write_evt2 = MagicMock(spec=WriteRowsEvent)
+        setattr(mck_write_evt2, "table", "pwgo_message")
+        evt2_row1_msg = { "image_id": 999, "table_name": "image_tag", "table_primary_key": [999, 50], "operation": "INSERT"}
+        evt2_row2_msg = evt1_row1_msg.copy()
+        evt2_row2_msg["table_primary_key"] = [evt1_row1_msg["image_id"], 51]
+        evt2_row3_msg = evt1_row1_msg.copy()
+        evt2_row3_msg["table_primary_key"] = [evt1_row1_msg["image_id"], 52]
+        mck_write_evt2.rows = [
+            { "values": { "id": 103, "message_timestamp": datetime.fromisoformat("2021-01-01 10:05:36")
+                , "message_type": "IMG_METADATA", "message": json.dumps(evt2_row1_msg) }},
+            { "values": { "id": 104, "message_timestamp": datetime.fromisoformat("2021-01-01 10:05:36")
+                , "message_type": "IMG_METADATA", "message": json.dumps(evt2_row2_msg) }},
+            { "values": { "id": 105, "message_timestamp": datetime.fromisoformat("2021-01-01 10:05:36")
+                , "message_type": "IMG_METADATA", "message": json.dumps(evt2_row3_msg) }}
+        ]
+        mck_write_evt3 = MagicMock(spec=WriteRowsEvent)
+        setattr(mck_write_evt3, "table", "pwgo_message")
+        evt3_row1_msg = { "image_id": 999, "table_name": "image_tag", "table_primary_key": [999, 50], "operation": "INSERT"}
+        evt3_row2_msg = evt1_row1_msg.copy()
+        evt3_row2_msg["table_primary_key"] = [evt1_row1_msg["image_id"], 51]
+        evt3_row3_msg = evt1_row1_msg.copy()
+        evt3_row3_msg["table_primary_key"] = [evt1_row1_msg["image_id"], 52]
+        mck_write_evt3.rows = [
+            { "values": { "id": 106, "message_timestamp": datetime.fromisoformat("2021-01-01 10:05:36")
+                , "message_type": "IMG_METADATA", "message": json.dumps(evt3_row1_msg) }},
+            { "values": { "id": 107, "message_timestamp": datetime.fromisoformat("2021-01-01 10:05:36")
+                , "message_type": "IMG_METADATA", "message": json.dumps(evt3_row2_msg) }},
+            { "values": { "id": 108, "message_timestamp": datetime.fromisoformat("2021-01-01 10:05:36")
+                , "message_type": "IMG_METADATA", "message": json.dumps(evt3_row3_msg) }}
+        ]
+
+        agent = MetadataAgent(logging.getLogger(__name__))
+
+        async def mck_start_evt_mon():
+            mon_task = asyncio.create_task(agent._event_monitor())
+            mon_task.set_name("agent-event-monitor")
+            mon_task.request_cancel = False
+            await asyncio.sleep(0)
+            return mon_task
+
+        async def handle_evts(_):
+            await asyncio.sleep(.1)
+
+        evts = [mck_write_evt1, mck_write_evt2, mck_write_evt3]
+        def bstrm_iter(_):
+            nonlocal evts
+            try:
+                return iter([evts.pop(0)])
+            except IndexError:
+                return iter(())
+
+        with ExitStack() as stack:
+            mck_bstrm = stack.enter_context(patch.object(agent, "_binlog_stream", spec=BinLogStreamReader))
+            mck_bstrm.__iter__ = bstrm_iter
+            _ = stack.enter_context(patch.object(agent, "_start_event_monitor", new=mck_start_evt_mon))
+            _ = stack.enter_context(
+                patch.object(ImageMetadataEventTask, "_handle_events", new=handle_evts))
+            mck_handle_evts = mocker.spy(ImageMetadataEventTask, "_handle_events")
+            mck_at = stack.enter_context(patch("pwgo_helper.agent.metadata_agent.AutoTagger"))
+            mck_vfs_task = stack.enter_context(patch("pwgo_helper.agent.metadata_agent.ImageVirtualPathEventTask"))
+            mck_pcfg_get = stack.enter_context(patch.object(ProgramConfig, "get"))
+            mck_pcfg_get.return_value = ProgramConfig()
+            mck_pcfg_get.return_value.verbosity = "DEBUG"
+            mck_pcfg_get.return_value.dry_run = True
+            mck_acfg_get = stack.enter_context(patch.object(AgentConfig, "get"))
+            mck_acfg_get.return_value = AgentConfig()
+            mck_acfg_get.return_value.workers = 10
+            mck_acfg_get.return_value.worker_error_limit = 0
+            # wait secs may need to be set higher when debugging test with breakpoints to work properly
+            mck_acfg_get.return_value.img_tag_wait_secs = 1
+            mck_acfg_get.return_value.stop_timeout = 999
+            _ = stack.enter_context(patch.object(agent, "process_autotag_backlog"))
+            mck_at.sync_face_index = AsyncMock()
+            mck_vfs_task.rebuild_virtualfs = AsyncMock()
+
+            await agent.start()
+            while evts:
+                await asyncio.sleep(1)
+            await agent.stop()
+
+            mck_handle_evts.assert_called_once()

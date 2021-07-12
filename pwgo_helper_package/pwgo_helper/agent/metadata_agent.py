@@ -31,9 +31,11 @@ class MetadataAgent():
         self._stopping_task = None
 
     def __await__(self):
-        yield from self.start().__await__()
+        if not self._is_running and not self._stopping_task:
+            yield from self.start().__await__()
         yield from self._evt_monitor_task.__await__()
-        yield from self._stopping_task.__await__()
+        if self._stopping_task:
+            yield from self._stopping_task.__await__()
 
     def _signal_handler(self, sig):
         self._logger.info(strings.LOG_HANDLE_SIG(sig.name))
@@ -136,7 +138,7 @@ class MetadataAgent():
                     raise RuntimeError("dispatcher is not running...stopping metadata agent")
 
             for evt in self._binlog_stream:
-                if (self._evt_dispatcher.state == "RUNNING"):
+                if self._evt_dispatcher.state == "RUNNING":
                     self._logger.debug("Processing %s on %s affecting %s rows"
                         , type(evt).__name__, evt.table, len(evt.rows)
                     )

@@ -21,7 +21,7 @@ class ImageMetadataEventTask(EventTask):
     def __init__(self, image_id, **kwargs):
         super().__init__()
         self.image_id = image_id
-        self._current_sleep_fut = None
+        self._sleep_futures = []
         self._action_task = None
         if "delay" in kwargs:
             self._std_delay = kwargs["delay"]
@@ -74,20 +74,25 @@ class ImageMetadataEventTask(EventTask):
 
         return result_fut
 
-    def schedule_start(self):
+    def schedule_start(self) -> bool:
         """schedules execution of the image tag event handling task"""
         if not self.is_scheduled():
-            self._current_sleep_fut = asyncio.ensure_future(asyncio.sleep(self._std_delay))
-            self._current_sleep_fut.add_done_callback(self._schedule_action_task)
+            sleep_fut = asyncio.ensure_future(asyncio.sleep(self._std_delay))
+            sleep_fut.add_done_callback(self._schedule_action_task)
+            self._sleep_futures.append(sleep_fut)
             self.status = "WAIT"
+            return True
+
+        return False
 
     async def _execute_task(self):
-        sleep_fut = self._current_sleep_fut
-        await sleep_fut
-        if sleep_fut is not self._current_sleep_fut:
+        await self._sleep_futures[-1]
+        # we may have appended a new sleep future...
+        if not self._sleep_futures[-1].done():
             await self._execute_task()
+            return
 
-        if not self._current_sleep_fut.cancelled():
+        if not self.status == "CANCELLED":
             while not self._action_task:
                 await asyncio.sleep(0)
             return await self._action_task
@@ -97,12 +102,11 @@ class ImageMetadataEventTask(EventTask):
         return self.status in ["INIT","WAIT"]
 
     def cancel(self):
-        """Cancels a the waiting image tag event task"""
+        """Cancels a the waiting image metadata event task"""
         if not self.is_waiting():
             raise RuntimeError("attempted to cancel image tag event task after execution has begun")
 
-        self._current_sleep_fut.remove_done_callback(self._schedule_action_task)
-        self._current_sleep_fut.cancel()
+        self._sleep_futures[-1].remove_done_callback(self._schedule_action_task)
         self.status = "CANCELLED"
 
     def _reset_delay(self, **kwargs):
@@ -116,14 +120,18 @@ class ImageMetadataEventTask(EventTask):
             delay = AgentConfig.get().img_tag_wait_secs
 
         # theoretically this could be called before _execute_task...in that case noop
-        if self._current_sleep_fut:
-            self._current_sleep_fut.remove_done_callback(self._schedule_action_task)
-            self._current_sleep_fut.cancel()
-            self._current_sleep_fut = asyncio.ensure_future(asyncio.sleep(delay))
-            self._current_sleep_fut.add_done_callback(self._schedule_action_task)
+        if self._sleep_futures:
+            self._sleep_futures[-1].remove_done_callback(self._schedule_action_task)
+            self._sleep_futures.append(asyncio.ensure_future(asyncio.sleep(delay)))
+            self._sleep_futures[-1].add_done_callback(self._schedule_action_task)
 
     def add_event(self, evt: ImageEventRow):
         """adds an event to the image metadata event task"""
+        if not self.is_waiting():
+            raise RuntimeError("attempted to process a new tagging event after execution has begun")
+
+        self._reset_delay(delay=self._std_delay)
+
         if evt.table_name == "image_tag":
             self._add_tagging_event(evt.table_primary_key[1], evt.db_event_type)
         elif evt.table_name == "image_category":
@@ -134,10 +142,6 @@ class ImageMetadataEventTask(EventTask):
             raise RuntimeError(f"No event handler for table {evt.table_name}")
 
     def _add_tagging_event(self, tag_id, oper):
-        if not self.is_waiting():
-            raise RuntimeError("attempted to process a new tagging event after execution has begun")
-
-        self._reset_delay(delay=self._std_delay)
         if tag_id not in self._included_tags:
             self._included_tags[tag_id] = 0
         if oper == "INSERT":
@@ -151,14 +155,6 @@ class ImageMetadataEventTask(EventTask):
         self._included_tags[tag_id] += increment
 
     def _add_category_event(self, category_id, oper):
-        if not self.is_waiting():
-            raise RuntimeError("attempted to process a new category event after execution has begun")
-
-        # resetting the delay even if we're not handling this category id
-        # thinking is that it still indicates ongoing activity on this image
-        # so might as well delay
-        self._reset_delay(delay=self._std_delay)
-
         if category_id == AgentConfig.get().auto_tag_alb:
             # since we're only handling the autotag category, this implementation
             # could be simplified, but not worth changing because it will make it
@@ -175,13 +171,11 @@ class ImageMetadataEventTask(EventTask):
             self._included_cats[category_id] += increment
 
     def _add_image_event(self):
-        if not self.is_waiting():
-            raise RuntimeError("attempted to process a new image event after execution has begun")
-
         self._write_metadata = True
 
     def _schedule_action_task(self, _fut):
         self._action_task = asyncio.create_task(self._handle_events())
+        self._action_task.set_name("exec_task")
         self.status = "EXEC_QUEUED"
 
     async def _handle_events(self):
