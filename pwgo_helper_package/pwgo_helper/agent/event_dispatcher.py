@@ -175,10 +175,12 @@ class EventDispatcher():
 
         evt_handler = await EventTask.get_event_task(evt)
         if evt_handler:
-            self.logger.debug("Scheduling event handler %s", type(evt_handler).__name__)
-            evt_handler.schedule_start()
-            result = await evt_handler
-            return result
+            start_result = evt_handler.schedule_start()
+            if start_result:
+                # schedule start returns True if it wasn't already started
+                self.logger.debug("Scheduling event handler %s", type(evt_handler).__name__)
+                result = await evt_handler
+                return result
         else:
             return False
 

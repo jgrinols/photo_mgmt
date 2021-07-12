@@ -128,6 +128,7 @@ class TestEventDispatcher:
             sync_complete = True
         def mck_schedule_start():
             asyncio.ensure_future(mck_evt_handler())
+            return True
         async def mck_evt_handler():
             nonlocal error, sync_complete, img_mdata_task
             if not sync_complete:
