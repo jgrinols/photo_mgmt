@@ -132,7 +132,7 @@ class ImageVirtualPathEventTask(EventTask):
         # todo: rebuild the image_virtual_paths table--using existing script
         # can be referenced from program config db_scripts_path
         logger = cls.get_logger()
-        async with DbConnectionPool.get().acquire_dict_cursor(db=AgentConfig.get().pwgo_db_config["name"]) as (cur,_):
+        async with DbConnectionPool.get().acquire_dict_cursor(db=ProgramConfig.get().pwgo_db_name) as (cur,_):
             vfs_root = Path(AgentConfig.get().virtualfs_root)
             logger.debug("retrieving all image virtual paths from db")
             await cur.execute("SELECT * FROM image_virtual_paths")

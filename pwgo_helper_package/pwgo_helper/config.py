@@ -1,6 +1,5 @@
 """container module for Configuration"""
 from __future__ import annotations
-from asyncio.tasks import Task
 
 import logging
 
@@ -24,15 +23,29 @@ class Configuration:
     def initialize(**kwargs):
         """initializes the Configuration singleton"""
         cfg = Configuration()
-        cfg.verbosity = kwargs["verbosity"]
-        cfg.dry_run = kwargs["dry_run"]
+        cfg.initialization_args = kwargs
+        cfg.db_config = {
+            "host": kwargs["db_host"],
+            "port": kwargs["db_port"],
+            "user": kwargs["db_user"],
+            "passwd": kwargs["db_pw"]
+        }
+        for key, val in kwargs.items():
+            if hasattr(cfg, key):
+                setattr(cfg, key, val)
+        # log init parameters in a separate loop so that we're logging with
+        # the configured verbosity
         for key,val in kwargs.items():
             cfg.create_logger(__name__).debug(strings.LOG_PRG_OPT(key,val))
+
         Configuration.instance = cfg
 
     def __init__(self):
         self.verbosity = "INFO"
         self.dry_run = False
+        self.initialization_args = None
+        self.db_config = None
+        self.pwgo_db_name = "piwigo"
         self.piwigo_db_scripts = PiwigoScripts()
         self.rekognition_db_scripts = RekognitionScripts()
 
