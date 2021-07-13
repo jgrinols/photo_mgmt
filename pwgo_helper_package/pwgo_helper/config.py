@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import logging
 
+import click
+
 from . import strings
 from .logging import CustomFormatter, TaskFilter
 
@@ -35,8 +37,16 @@ class Configuration:
                 setattr(cfg, key, val)
         # log init parameters in a separate loop so that we're logging with
         # the configured verbosity
-        for key,val in kwargs.items():
-            cfg.create_logger(__name__).debug(strings.LOG_PRG_OPT(key,val))
+        click_ctx = click.get_current_context()
+        # only log init parameters if we have a click context
+        # so we don't risk logging sensitive data
+        if click_ctx:
+            for key,val in kwargs.items():
+                show_val = val
+                opt = [opt for opt in click_ctx.command.params if opt.name == key]
+                if opt and opt[0].hide_input:
+                    show_val = "OMITTED"
+                cfg.create_logger(__name__).debug(strings.LOG_PRG_OPT(key,show_val))
 
         Configuration.instance = cfg
 
