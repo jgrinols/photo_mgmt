@@ -17,44 +17,56 @@ class TestAutotagger:
     """tests for the AutoTagger class"""
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
-    async def test_create(self, m_get_cfg, test_db, db_cfg):
+    @patch.object(ProgramConfig, "get")
+    async def test_create(self, m_get_pcfg, m_get_acfg, test_db, db_cfg):
         """tests the create method when passing a pwgo image id"""
-        cfg = AgentConfig()
-        cfg.pwgo_db_config = db_cfg
-        m_get_cfg.return_value = cfg
+        a_cfg = AgentConfig()
+        p_cfg = ProgramConfig()
+        p_cfg.db_config = db_cfg
+        m_get_acfg.return_value = a_cfg
+        m_get_pcfg.return_value = p_cfg
         async with AutoTagger.create(22) as tagger:
             assert isinstance(tagger.image, PiwigoImage)
             assert tagger.image.file == "IMG_0958.JPG"
 
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
-    async def test_get_tag_ids_for_label(self, m_get_cfg, test_db, db_cfg):
+    @patch.object(ProgramConfig, "get")
+    async def test_get_tag_ids_for_label(self, m_get_pcfg, m_get_acfg, test_db, db_cfg):
         """tests basic functioning of the _get_tag_ids_for_labels method"""
-        cfg = AgentConfig()
-        cfg.pwgo_db_config = db_cfg
-        m_get_cfg.return_value = cfg
+        a_cfg = AgentConfig()
+        p_cfg = ProgramConfig()
+        p_cfg.db_config = db_cfg
+        m_get_acfg.return_value = a_cfg
+        m_get_pcfg.return_value = p_cfg
         tag_ids = await AutoTagger._get_tag_ids_for_labels(labels=["snow","car","baby"])
         assert tag_ids == [31,32,34]
 
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
-    async def test_get_tags_for_match(self, m_get_cfg, test_db, db_cfg):
+    @patch.object(ProgramConfig, "get")
+    async def test_get_tags_for_match(self, m_get_pcfg, m_get_acfg, test_db, db_cfg):
         """tests basic functioning of the _get_tags_for_match method"""
         mck_face_match = { "ExternalImageId": "133:1" }
-        cfg = AgentConfig()
-        cfg.pwgo_db_config = db_cfg
-        m_get_cfg.return_value = cfg
+        a_cfg = AgentConfig()
+        p_cfg = ProgramConfig()
+        p_cfg.db_config = db_cfg
+        m_get_acfg.return_value = a_cfg
+        m_get_pcfg.return_value = p_cfg
         tag_ids = await AutoTagger._get_tags_for_match(face=mck_face_match)
         assert tag_ids == [22]
 
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
-    async def test_add_tags(self, mck_cfg_get, test_db, db_cfg):
+    @patch.object(ProgramConfig, "get")
+    async def test_add_tags(self, m_get_pcfg, m_get_acfg, test_db, db_cfg):
         """tests basic functioning of the add_tags method
         including testing that already existing tags are not duplicated"""
-        cfg = AgentConfig()
-        cfg.pwgo_db_config = db_cfg
-        mck_cfg_get.return_value = cfg
+        a_cfg = AgentConfig()
+        p_cfg = ProgramConfig()
+        p_cfg.db_config = db_cfg
+        m_get_acfg.return_value = a_cfg
+        m_get_pcfg.return_value = p_cfg
         async with test_db.acquire_dict_cursor(db="piwigo") as (cur,_):
             async with AutoTagger.create(367) as tagger:
                 await tagger.add_tags([16,20,28])
@@ -74,13 +86,16 @@ class TestAutotagger:
 
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
-    async def test_add_implicit_tags(self, mck_cfg_get, test_db, db_cfg):
+    @patch.object(ProgramConfig, "get")
+    async def test_add_implicit_tags(self, m_get_pcfg, m_get_acfg, test_db, db_cfg):
         """test basic functioning of the add_implicit_tags method.
         adds 'christmas' tag to an image then calls the add_implit_tags method.
         verify that 'holidays' tag was added"""
-        cfg = AgentConfig()
-        cfg.pwgo_db_config = db_cfg
-        mck_cfg_get.return_value = cfg
+        a_cfg = AgentConfig()
+        p_cfg = ProgramConfig()
+        p_cfg.db_config = db_cfg
+        m_get_acfg.return_value = a_cfg
+        m_get_pcfg.return_value = p_cfg
         img_id = 22
         async with test_db.acquire_dict_cursor(db="piwigo") as (cur,_):
             sql = """
@@ -102,15 +117,17 @@ class TestAutotagger:
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
     @patch.object(AutoTagger, "_get_rek_client")
-    async def test_add_indexed_image(self, mck_rek, mck_cfg_get, test_db, db_cfg):
+    @patch.object(ProgramConfig, "get")
+    async def test_add_indexed_image(self, m_get_pcfg, m_rek, m_get_acfg, test_db, db_cfg):
         """test basic functioning of the add_indexed_image method.
         mocks the rekognition client and checks that expected db entry
         is created"""
-        cfg = AgentConfig()
-        cfg.pwgo_db_config = db_cfg
-        cfg.rek_db_config = db_cfg.copy()
-        cfg.rek_db_config["name"] = "rekognition"
-        mck_cfg_get.return_value = cfg
+        a_cfg = AgentConfig()
+        p_cfg = ProgramConfig()
+        p_cfg.db_config = db_cfg
+        a_cfg.rek_db_name = "rekognition"
+        m_get_acfg.return_value = a_cfg
+        m_get_pcfg.return_value = p_cfg
         img_id = 242
         img_cat_id = 129
         img_face_bounding = {"Width": 0.15, "Height": 0.20, "Left": 0.25, "Top": 0.17}
@@ -123,8 +140,8 @@ class TestAutotagger:
             }
             , "FaceDetail": { "BoundingBox": img_face_bounding }
         }]
-        mck_rek.return_value = AsyncMock(spec=RekognitionClient)
-        mck_rek.return_value.index_faces_from_image.return_value = mck_idx_faces
+        m_rek.return_value = AsyncMock(spec=RekognitionClient)
+        m_rek.return_value.index_faces_from_image.return_value = mck_idx_faces
         img = await PiwigoImage.create(img_id)
         with patch.object(PiwigoImage, "open_file") as _:
             async with AutoTagger.create(img) as tagger:
@@ -150,16 +167,18 @@ class TestAutotagger:
     @patch.object(AgentConfig, "get")
     @patch.object(utilities, "get_cropped_image")
     @patch.object(AutoTagger, "_get_rek_client")
-    async def test_get_face_image_files(self, m_rek, m_get_crp, m_get_cfg, test_db, db_cfg):
+    @patch.object(ProgramConfig, "get")
+    async def test_get_face_image_files(self, m_get_pcfg, m_rek, m_crp_img, m_get_acfg, test_db, db_cfg):
         """test basic functioning of the _get_face_image_files method.
         mocks the rekognition client and checks that expected db entry
         is created"""
         img_id = 543
-        cfg = AgentConfig()
-        cfg.pwgo_db_config = db_cfg
-        cfg.rek_db_config = db_cfg.copy()
-        cfg.rek_db_config["name"] = "rekognition"
-        m_get_cfg.return_value = cfg
+        a_cfg = AgentConfig()
+        p_cfg = ProgramConfig()
+        p_cfg.db_config = db_cfg
+        a_cfg.rek_db_name = "rekognition"
+        m_get_acfg.return_value = a_cfg
+        m_get_pcfg.return_value = p_cfg
         mck_faces = [{ "BoundingBox": { "Width": 0.18, "Height": 0.27, "Left": 0.73, "Top": 0.37 } }
             , { "BoundingBox": {"Width": 0.16, "Height": 0.24, "Left": 0.33, "Top": 0.06 } }]
         m_rek.return_value = AsyncMock(spec=RekognitionClient)
@@ -171,7 +190,7 @@ class TestAutotagger:
                 await tagger._get_face_image_files()
 
         mck_open.call_count == 2
-        assert m_get_crp.call_count == 2
+        assert m_crp_img.call_count == 2
 
         async with test_db.acquire_dict_cursor(db="rekognition") as (cur,_):
             sql = """
@@ -190,22 +209,24 @@ class TestAutotagger:
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
     @patch.object(AutoTagger, "_get_rek_client")
-    async def test_get_matched_face(self, m_rek, m_get_cfg, test_db, db_cfg):
+    @patch.object(ProgramConfig, "get")
+    async def test_get_matched_face(self, m_get_pcfg, m_rek, m_get_acfg, test_db, db_cfg):
         """test basic functionality of _get_matched_face method.
         inserts a stub processed_image record and checks that the stub is
         updated with the correct face id"""
         mck_matched_face = { "Face": { "FaceId": "e2f5c37f-3ef5-4a06-bfe2-7251384f7873" } }
         m_rek.return_value = AsyncMock(spec=RekognitionClient)
         m_rek.return_value.match_face_from_image.return_value = mck_matched_face
-        cfg = AgentConfig()
-        cfg.pwgo_db_config = db_cfg
-        cfg.rek_db_config = db_cfg.copy()
-        cfg.rek_db_config["name"] = "rekognition"
-        m_get_cfg.return_value = cfg
+        a_cfg = AgentConfig()
+        p_cfg = ProgramConfig()
+        p_cfg.db_config = db_cfg
+        a_cfg.rek_db_name = "rekognition"
+        m_get_acfg.return_value = a_cfg
+        m_get_pcfg.return_value = p_cfg
         img_id = 826
         img_face_idx = 0
         matched_img_id = 582
-        async with test_db.acquire_dict_cursor(db=AgentConfig.get().rek_db_config["name"]) as (cur,conn):
+        async with test_db.acquire_dict_cursor(db=AgentConfig.get().rek_db_name) as (cur,conn):
             # insert indexed face to satisy fk in processed_faces
             sql = """
                 INSERT INTO indexed_faces ( face_id, image_id, piwigo_image_id, piwigo_category_id, face_confidence, face_details)
@@ -241,15 +262,17 @@ class TestAutotagger:
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
     @patch.object(AutoTagger, "_get_rek_client")
-    async def test_fetch_image_labels(self, m_rek, m_get_cfg, test_db, db_cfg):
+    @patch.object(ProgramConfig, "get")
+    async def test_fetch_image_labels(self, m_get_pcfg, m_rek, m_get_acfg, test_db, db_cfg):
         """tests basic functionality of the _fetch_image_labels method.
         verify that expected record is inserted into image_labels table"""
         img_id = 543
-        cfg = AgentConfig()
-        cfg.pwgo_db_config = db_cfg
-        cfg.rek_db_config = db_cfg.copy()
-        cfg.rek_db_config["name"] = "rekognition"
-        m_get_cfg.return_value = cfg
+        a_cfg = AgentConfig()
+        p_cfg = ProgramConfig()
+        p_cfg.db_config = db_cfg
+        a_cfg.rek_db_name = "rekognition"
+        m_get_acfg.return_value = a_cfg
+        m_get_pcfg.return_value = p_cfg
         mck_matched_labels = [
             { "Name": "Beverage", "Confidence": 99, "Parents": [] }
             ,{ "Name": "Alcohol", "Confidence": 81, "Parents": [{ "Name": "Beverage" }] }
@@ -265,7 +288,7 @@ class TestAutotagger:
                 labels = await tagger._fetch_image_labels()
 
         assert labels == ["Beverage","Alcohol","Beer"]
-        async with test_db.acquire_dict_cursor(db=AgentConfig.get().rek_db_config["name"]) as (cur,_):
+        async with test_db.acquire_dict_cursor(db=AgentConfig.get().rek_db_name) as (cur,_):
             sql = """
                 SELECT label
                 FROM image_labels
@@ -280,11 +303,14 @@ class TestAutotagger:
 
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
-    async def test_move_image_to_processed(self, m_get_cfg, test_db, db_cfg):
+    @patch.object(ProgramConfig, "get")
+    async def test_move_image_to_processed(self, m_get_pcfg, m_get_acfg, test_db, db_cfg):
         """test the basic functioning of the _move_image_to_processed method"""
-        cfg = AgentConfig()
-        cfg.pwgo_db_config = db_cfg
-        m_get_cfg.return_value = cfg
+        a_cfg = AgentConfig()
+        p_cfg = ProgramConfig()
+        p_cfg.db_config = db_cfg
+        m_get_acfg.return_value = a_cfg
+        m_get_pcfg.return_value = p_cfg
         img_id = 22
         async with test_db.acquire_dict_cursor(db="piwigo") as (cur,conn):
             sql = """
@@ -314,17 +340,19 @@ class TestAutotagger:
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
     @patch('pwgo_helper.agent.autotagger.RekognitionClient')
-    async def test_remove_indexed_faces(self, rek, mck_cfg_get, test_db, db_cfg):
+    @patch.object(ProgramConfig, "get")
+    async def test_remove_indexed_faces(self, m_get_pcfg, m_rek, m_get_acfg, test_db, db_cfg):
         """test the basic functioning of the remove_indexed_faces method.
         inserts 3 test faces in indexed_faces table then passes two of the ids
         to the remove method. verifies that the 2 have been removed and the
         the third is still there."""
-        cfg = AgentConfig()
-        cfg.pwgo_db_config = db_cfg
-        cfg.rek_db_config = db_cfg.copy()
-        cfg.rek_db_config["name"] = "rekognition"
-        mck_cfg_get.return_value = cfg
-        rek.return_value = AsyncMock(spec=RekognitionClient)
+        a_cfg = AgentConfig()
+        p_cfg = ProgramConfig()
+        p_cfg.db_config = db_cfg
+        a_cfg.rek_db_name = "rekognition"
+        m_get_acfg.return_value = a_cfg
+        m_get_pcfg.return_value = p_cfg
+        m_rek.return_value = AsyncMock(spec=RekognitionClient)
         mck_inx_faces = [
             ('80f5f9fe-34fc-4643-ad9d-78cc5f73c7e5','279901c8-258e-4816-82ea-f038560a7f98',9564,129,99,'{}')
             ,('af8c34c1-8f43-491b-9a1d-f5e4fd0168d5','a01e4ed1-bf1b-452e-a88e-daa0fcfe48b1',5864,129,99,'{}')
@@ -363,16 +391,17 @@ class TestAutotagger:
     @patch.object(AutoTagger, "remove_indexed_faces")
     @patch.object(AutoTagger, "create")
     @patch('pwgo_helper.agent.autotagger.RekognitionClient')
-    @patch('pwgo_helper.agent.autotagger.ProgramConfig')
-    @patch('pwgo_helper.agent.autotagger.AgentConfig')
-    async def test_sync_face_index(self, mck_acfg, mck_pcfg, rek, at_create, at_rem_idx, _, test_db, db_cfg):
+    @patch.object(ProgramConfig, "get")
+    @patch.object(AgentConfig, "get")
+    async def test_sync_face_index(self, m_get_acfg, m_get_pcfg, rek, at_create, at_rem_idx, _, test_db, db_cfg):
         """tests the basic functioning of the sync_face_index static method."""
-        mck_acfg_inst = MagicMock(spec=AgentConfig)
-        mck_acfg.get.return_value = mck_acfg_inst
-        mck_acfg_inst.face_idx_albs = [129,130,131]
-        mck_acfg_inst.pwgo_db_config = db_cfg
-        mck_pcfg.get.return_value = MagicMock(spec=ProgramConfig)
-        mck_pcfg.get.return_value.dry_run = False
+        acfg = AgentConfig()
+        acfg.face_idx_albs = [129,130,131]
+        pcfg = ProgramConfig()
+        pcfg.db_config = db_cfg
+        pcfg.dry_run = False
+        m_get_acfg.return_value = acfg
+        m_get_pcfg.return_value = pcfg
         mck_rek_client = MagicMock(spec=RekognitionClient)
         mck_curr_faces = [
             (129,584,'560a7c6b-4d29-40e1-b2cc-0224c0b25bf9'),
@@ -392,13 +421,15 @@ class TestAutotagger:
 
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
-    async def test_process_new_tag(self, mck_cfg_get, test_db, db_cfg):
+    @patch.object(ProgramConfig, "get")
+    async def test_process_new_tag(self, m_get_pcfg, m_get_acfg, test_db, db_cfg):
         """tests the basic functionality of the process_new_tag method"""
-        cfg = AgentConfig()
-        cfg.pwgo_db_config = db_cfg
-        cfg.rek_db_config = db_cfg.copy()
-        cfg.rek_db_config["name"] = "rekognition"
-        mck_cfg_get.return_value = cfg
+        a_cfg = AgentConfig()
+        p_cfg = ProgramConfig()
+        p_cfg.db_config = db_cfg
+        a_cfg.rek_db_name = "rekognition"
+        m_get_acfg.return_value = a_cfg
+        m_get_pcfg.return_value = p_cfg
         new_tag = (999,'test_auto_label')
         img_id = 367
         async with test_db.acquire_dict_cursor(db="piwigo") as (cur,conn):
@@ -426,27 +457,30 @@ class TestAutotagger:
 
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
+    @patch.object(ProgramConfig, "get")
     @patch.object(AutoTagger, "_move_image_to_processed")
     @patch.object(AutoTagger, "add_tags")
     @patch.object(AutoTagger, "_get_face_image_files")
     @patch.object(AutoTagger, "_get_label_tags")
     @patch.object(AutoTagger, "_get_tags_for_face_image")
-    async def test_autotag_image(self, m_img_tags, m_lbl_tags, m_files, m_add, m_mv, m_get_cfg, test_db, db_cfg):
+    async def test_autotag_image(self, m_i_tags, m_l_tags, m_files, m_add, m_mv, m_get_pcfg, m_get_acfg, test_db, db_cfg):
         """tests the basic functioning of the main autotag_image method"""
         mck_img_file = MagicMock(spec=IOBase)
         m_files.return_value = [(mck_img_file, 0)]
-        m_img_tags.return_value = [45]
-        m_lbl_tags.return_value = [20,21]
-        cfg = AgentConfig()
-        cfg.pwgo_db_config = db_cfg
-        m_get_cfg.return_value = cfg
+        m_i_tags.return_value = [45]
+        m_l_tags.return_value = [20,21]
+        a_cfg = AgentConfig()
+        p_cfg = ProgramConfig()
+        p_cfg.db_config = db_cfg
+        m_get_acfg.return_value = a_cfg
+        m_get_pcfg.return_value = p_cfg
 
         img = await PiwigoImage.create(110)
         with patch.object(PiwigoImage, "open_file") as _:
             async with AutoTagger.create(img) as tagger:
                 await tagger.autotag_image()
 
-        m_img_tags.assert_awaited_once_with(mck_img_file, 0)
-        m_lbl_tags.assert_awaited_once()
+        m_i_tags.assert_awaited_once_with(mck_img_file, 0)
+        m_l_tags.assert_awaited_once()
         m_add.assert_awaited_once_with({45,20,21})
         m_mv.assert_awaited_once()

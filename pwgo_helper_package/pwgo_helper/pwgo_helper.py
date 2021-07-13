@@ -6,6 +6,21 @@ from .agent.metadata_agent import agent_entry
 
 @click.group()
 @click.option(
+    "--db-host",help="hostname for piwigo db connection",type=str,required=True
+)
+@click.option(
+    "--db-port",help="port for piwigo db connection",type=int,required=False,default=3306
+)
+@click.option(
+    "--db-user",help="username for piwigo db connection",type=str,required=True
+)
+@click.option(
+    "--db-pw",help="password for piwigo db connection",type=str,required=True,hide_input=True
+)
+@click.option(
+    "--pwgo-db-name",help="name of the piwigo database",type=str,required=False,default="piwigo"
+)
+@click.option(
     "-v", "--verbosity",
     help="specifies the verbosity of the log output",
     type=click.Choice(["CRITICAL","ERROR","WARNING","INFO","DEBUG"]),

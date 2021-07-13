@@ -15,6 +15,7 @@ class PiwigoImage:
     """Class which encapsulates the core attributes of an image in the Piwigo db."""
     @staticmethod
     def get_logger():
+        """gets a logger object"""
         return ProgramConfig.get().create_logger(__name__)
 
     def __init__(self, **kwargs):
@@ -31,7 +32,7 @@ class PiwigoImage:
     async def create(cls, img_id: int, load_metadata: bool = False) -> PiwigoImage:
         """Creates an instance from the given image id by looking up details in database"""
         cls.get_logger().debug("looking up image details from db")
-        async with DbConnectionPool.get().acquire_dict_cursor(db=AgentConfig.get().pwgo_db_config["name"]) as (cur,_):
+        async with DbConnectionPool.get().acquire_dict_cursor(db=ProgramConfig.get().pwgo_db_name) as (cur,_):
             sql = """
                 SELECT file, path
                 FROM images
@@ -49,7 +50,7 @@ class PiwigoImage:
             }
 
         if load_metadata:
-            async with DbConnectionPool.get().acquire_dict_cursor(db=AgentConfig.get().pwgo_db_config["name"]) as (cur,_):
+            async with DbConnectionPool.get().acquire_dict_cursor(db=ProgramConfig.get().pwgo_db_name) as (cur,_):
                 sql = """
                     SELECT image_metadata
                     FROM image_metadata

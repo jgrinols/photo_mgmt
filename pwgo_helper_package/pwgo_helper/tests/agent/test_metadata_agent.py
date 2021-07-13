@@ -26,8 +26,9 @@ class TestMetadataAgent:
 
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
+    @patch.object(ProgramConfig, "get")
     @patch("pwgo_helper.agent.metadata_agent.AutoTagger")
-    async def test_unforced_stop(self, mck_atag, mck_get_cfg, test_db, db_cfg):
+    async def test_unforced_stop(self, mck_atag, m_get_pcfg, m_get_acfg, test_db, db_cfg):
         """tests proper handling unforced stopping of agent. queue should be cleared before the agent stops.
         this is behavior for sigquit"""
         async def mck_sync_face_idx():
@@ -36,15 +37,17 @@ class TestMetadataAgent:
             await asyncio.sleep(2)
 
         mck_atag.sync_face_index = mck_sync_face_idx
-        cfg = AgentConfig()
-        cfg.workers = 2
-        cfg.pwgo_db_config = db_cfg
-        mck_get_cfg.return_value = cfg
+        acfg = AgentConfig()
+        acfg.workers = 2
+        pcfg = ProgramConfig()
+        pcfg.db_config = db_cfg
+        m_get_acfg.return_value = acfg
+        m_get_pcfg.return_value = pcfg
         with tempfile.TemporaryDirectory() as tmp_dir:
             vfs_root_path = Path(tmp_dir).joinpath("vfs")
             vfs_root_path.mkdir()
-            mck_get_cfg.return_value.virtualfs_root = str(vfs_root_path)
-            mck_get_cfg.return_value.piwigo_galleries_host_path = tmp_dir
+            m_get_acfg.return_value.virtualfs_root = str(vfs_root_path)
+            m_get_acfg.return_value.piwigo_galleries_host_path = tmp_dir
             with patch("builtins.open", mock_open(read_data=json.dumps(db_cfg))):
                 agent = MetadataAgent(logging.getLogger(__name__))
             with patch.object(agent, "process_autotag_backlog"):
@@ -52,7 +55,7 @@ class TestMetadataAgent:
 
             proc_evt_tgt = "pwgo_helper.agent.event_dispatcher.EventDispatcher.process_event"
             with patch(proc_evt_tgt, wraps=proc_evt) as mck_proc_evt:
-                async with test_db.acquire_dict_cursor(db=AgentConfig.get().pwgo_db_config["name"]) as (cur,conn):
+                async with test_db.acquire_dict_cursor(db=ProgramConfig.get().pwgo_db_name) as (cur,conn):
                     sql = """
                         INSERT INTO image_category (image_id, category_id)
                         VALUES (%s, %s)
@@ -71,8 +74,9 @@ class TestMetadataAgent:
 
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
+    @patch.object(ProgramConfig, "get")
     @patch("pwgo_helper.agent.metadata_agent.AutoTagger")
-    async def test_forced_stop(self, mck_atag, mck_get_cfg, test_db, db_cfg):
+    async def test_forced_stop(self, m_atag, m_get_pcfg, m_get_acfg, test_db, db_cfg):
         """tests proper handling forced stopping of agent. queue should NOT be cleared before the agent stops.
         this is behavior for sigterm and sigint"""
         proc_time = 2
@@ -81,16 +85,18 @@ class TestMetadataAgent:
         async def proc_evt(_):
             await asyncio.sleep(proc_time)
 
-        mck_atag.sync_face_index = mck_sync_face_idx
-        cfg = AgentConfig()
-        cfg.workers = 2
-        cfg.pwgo_db_config = db_cfg
-        mck_get_cfg.return_value = cfg
+        m_atag.sync_face_index = mck_sync_face_idx
+        acfg = AgentConfig()
+        acfg.workers = 2
+        pcfg = ProgramConfig()
+        pcfg.db_config = db_cfg
+        m_get_acfg.return_value = acfg
+        m_get_pcfg.return_value = pcfg
         with tempfile.TemporaryDirectory() as tmp_dir:
             vfs_root_path = Path(tmp_dir).joinpath("vfs")
             vfs_root_path.mkdir()
-            mck_get_cfg.return_value.virtualfs_root = str(vfs_root_path)
-            mck_get_cfg.return_value.piwigo_galleries_host_path = tmp_dir
+            m_get_acfg.return_value.virtualfs_root = str(vfs_root_path)
+            m_get_acfg.return_value.piwigo_galleries_host_path = tmp_dir
             with patch("builtins.open", mock_open(read_data=json.dumps(db_cfg))):
                 agent = MetadataAgent(logging.getLogger(__name__))
             with patch.object(agent, "process_autotag_backlog"):
@@ -98,7 +104,7 @@ class TestMetadataAgent:
 
             proc_evt_tgt = "pwgo_helper.agent.event_dispatcher.EventDispatcher.process_event"
             with patch(proc_evt_tgt, wraps=proc_evt) as mck_proc_evt:
-                async with test_db.acquire_dict_cursor(db=AgentConfig.get().pwgo_db_config["name"]) as (cur,conn):
+                async with test_db.acquire_dict_cursor(db=ProgramConfig.get().pwgo_db_name) as (cur,conn):
                     sql = """
                         INSERT INTO image_category (image_id, category_id)
                         VALUES (%s, %s)
@@ -116,20 +122,23 @@ class TestMetadataAgent:
 
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
+    @patch.object(ProgramConfig, "get")
     @patch.object(AutoTagger, "sync_face_index")
     @patch.object(AutoTagger, "create")
-    async def test_autotag_backlog(self, mck_atag_create, _, mck_get_cfg, test_db, db_cfg):
+    async def test_autotag_backlog(self, m_atag_create, _, m_get_pcfg, m_get_acfg, test_db, db_cfg):
         """test proper functioning of the processing of backlog items when agent starts"""
         mck_atagger = MagicMock(spec=AutoTagger)
-        mck_atag_create.return_value.__aenter__.return_value = mck_atagger
-        cfg = AgentConfig()
-        cfg.workers = 2
-        cfg.pwgo_db_config = db_cfg
-        mck_get_cfg.return_value = cfg
+        m_atag_create.return_value.__aenter__.return_value = mck_atagger
+        acfg = AgentConfig()
+        acfg.workers = 2
+        pcfg = ProgramConfig()
+        pcfg.db_config = db_cfg
+        m_get_acfg.return_value = acfg
+        m_get_pcfg.return_value = pcfg
         with patch("builtins.open", mock_open(read_data=json.dumps(db_cfg))):
             agent = MetadataAgent(logging.getLogger(__name__))
 
-        async with test_db.acquire_dict_cursor(db=AgentConfig.get().pwgo_db_config["name"]) as (cur,conn):
+        async with test_db.acquire_dict_cursor(db=ProgramConfig.get().pwgo_db_name) as (cur,conn):
             sql = """
                 INSERT INTO image_category (image_id, category_id)
                 VALUES (%s, %s)
@@ -181,6 +190,14 @@ class TestMetadataAgent:
                 "-v",
                 "DEBUG",
                 "--dry-run",
+                "--db-host",
+                db_cfg["host"],
+                "--db-port",
+                str(db_cfg["port"]),
+                "--db-user",
+                db_cfg["user"],
+                "--db-pw",
+                db_cfg["passwd"],
                 "agent",
                 "--piwigo-galleries-host-path",
                 "/workspace",
@@ -188,14 +205,6 @@ class TestMetadataAgent:
                 "/workspace",
                 "--virtualfs-root",
                 str(vfs_root_path),
-                "--pwgo-db-host",
-                db_cfg["host"],
-                "--pwgo-db-port",
-                str(db_cfg["port"]),
-                "--pwgo-db-user",
-                db_cfg["user"],
-                "--pwgo-db-pw",
-                db_cfg["passwd"],
                 "--rek-access-key",
                 test_str,
                 "--rek-secret-access-key",
@@ -335,6 +344,14 @@ class TestMetadataAgent:
                     "-v",
                     "DEBUG",
                     "--dry-run",
+                    "--db-host",
+                    db_cfg["host"],
+                    "--db-port",
+                    str(db_cfg["port"]),
+                    "--db-user",
+                    db_cfg["user"],
+                    "--db-pw",
+                    db_cfg["passwd"],
                     "agent",
                     "--piwigo-galleries-host-path",
                     "/workspace",
@@ -342,14 +359,6 @@ class TestMetadataAgent:
                     "/workspace",
                     "--virtualfs-root",
                     str(vfs_root_path),
-                    "--pwgo-db-host",
-                    db_cfg["host"],
-                    "--pwgo-db-port",
-                    str(db_cfg["port"]),
-                    "--pwgo-db-user",
-                    db_cfg["user"],
-                    "--pwgo-db-pw",
-                    db_cfg["passwd"],
                     "--rek-access-key",
                     test_str,
                     "--rek-secret-access-key",
@@ -401,10 +410,10 @@ class TestMetadataAgent:
             os.environ["PWGO_HLPR_VERBOSITY"] = "DEBUG"
             os.environ["PWGO_HLPR_AGENT_WORKERS"] = "17"
             os.environ["PWGO_HLPR_AGENT_INITIALIZE_DB"] = "True"
-            os.environ["PWGO_HLPR_AGENT_PWGO_DB_HOST"] = db_cfg["host"]
-            os.environ["PWGO_HLPR_AGENT_PWGO_DB_PORT"] = str(db_cfg["port"])
-            os.environ["PWGO_HLPR_AGENT_PWGO_DB_USER"] = db_cfg["user"]
-            os.environ["PWGO_HLPR_AGENT_PWGO_DB_PW"] = db_cfg["passwd"]
+            os.environ["PWGO_HLPR_DB_HOST"] = db_cfg["host"]
+            os.environ["PWGO_HLPR_DB_PORT"] = str(db_cfg["port"])
+            os.environ["PWGO_HLPR_DB_USER"] = db_cfg["user"]
+            os.environ["PWGO_HLPR_DB_PW"] = db_cfg["passwd"]
             os.environ["PWGO_HLPR_AGENT_REK_ACCESS_KEY"] = test_str
             os.environ["PWGO_HLPR_AGENT_REK_SECRET_ACCESS_KEY"] = test_str
             os.environ["PWGO_HLPR_AGENT_REK_COLLECTION_ARN"] = test_str

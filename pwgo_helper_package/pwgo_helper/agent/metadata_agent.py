@@ -97,18 +97,18 @@ class MetadataAgent():
         """Starts a BinLogStreamReader to monitor for mysql events
         that need to be handled"""
 
-        db_cfg = AgentConfiguration.get().pwgo_db_config
-        self._logger.info("Monitoring %s for metadata changes", db_cfg["name"])
+        cfg = ProgramConfiguration.get()
+        self._logger.info("Monitoring %s for metadata changes", cfg.pwgo_db_name)
 
         blog_args = {
             "connection_settings": {
-                "host": db_cfg["host"],
-                "port": db_cfg["port"],
-                "user": db_cfg["user"],
-                "passwd": db_cfg["passwd"]
+                "host": cfg.db_config["host"],
+                "port": cfg.db_config["port"],
+                "user": cfg.db_config["user"],
+                "passwd": cfg.db_config["passwd"]
             },
             "server_id": 1,
-            "only_schemas": [db_cfg["name"], AgentConfiguration.get().msg_db],
+            "only_schemas": [cfg.pwgo_db_name, AgentConfiguration.get().msg_db],
             "only_tables": AgentConfiguration.get().event_tables.keys(),
             "only_events": [WriteRowsEvent],
             "blocking": False,
@@ -156,7 +156,7 @@ class MetadataAgent():
         """process any existing images that are waiting in the auto tag album
             and initialize the tags for any previously autotagged images"""
         self._logger.debug("processing any autotag backlog photos")
-        async with DbPool.get().acquire_dict_cursor(db=AgentConfiguration.get().pwgo_db_config["name"]) as (cur, _):
+        async with DbPool.get().acquire_dict_cursor(db=ProgramConfiguration.get().pwgo_db_name) as (cur, _):
             sql = """
                 SELECT i.id, i.file, i.path
                 FROM images i
@@ -179,7 +179,7 @@ class MetadataAgent():
             async with AutoTagger.create(img_id) as tagger:
                 await tagger.add_tags(tag_ids)
 
-        async with DbPool.get().acquire_dict_cursor(db=AgentConfiguration.get().pwgo_db_config["name"]) as (cur, _):
+        async with DbPool.get().acquire_dict_cursor(db=ProgramConfiguration.get().pwgo_db_name) as (cur, _):
             # initialize the tags for any previously autotagged images
             # this is in case a new tag has been added to the piwigo table
             # that matches one that was previously detected by rekognition
@@ -210,33 +210,6 @@ class MetadataAgent():
     help="""Host path of the piwigo gallieries folder. Can be any path that can be opened
     as a virtual filesystem by the fs package""",
     required=True,
-)
-@click.option(
-    "--pwgo-db-host",help="hostname for piwigo db connection",type=str,required=True
-)
-@click.option(
-    "--pwgo-db-port",help="port for piwigo db connection",type=int,required=False,default=3306
-)
-@click.option(
-    "--pwgo-db-user",help="username for piwigo db connection",type=str,required=True
-)
-@click.option(
-    "--pwgo-db-pw",help="password for piwigo db connection",type=str,required=True,hide_input=True
-)
-@click.option(
-    "--pwgo-db-name",help="name of the piwigo database",type=str,required=False,default="piwigo"
-)
-@click.option(
-    "--rek-db-host",help="hostname for rekognition db connection",type=str,required=False
-)
-@click.option(
-    "--rek-db-port",help="port for rekognition db connection",type=int,required=False,default=3306
-)
-@click.option(
-    "--rek-db-user",help="username for rekognition db connection",type=str,required=False
-)
-@click.option(
-    "--rek-db-pw",help="password for rekognition db connection",type=str,required=False,hide_input=True
 )
 @click.option(
     "--rek-db-name",help="name of the rekognition database",type=str,required=False,default="rekognition"
@@ -309,13 +282,14 @@ def agent_entry(**kwargs):
 
     logger.info("metadata_agent entry")
     async def exec_metadata_agent(**kwargs):
+        prg_cfg = ProgramConfiguration.get()
         asyncio.current_task().set_name("run-agent")
         logger.debug("initializing database connection pool...")
         await DbPool.initialize(
-            kwargs["pwgo_db_host"],
-            kwargs["pwgo_db_port"],
-            kwargs["pwgo_db_user"],
-            kwargs["pwgo_db_pw"]
+            prg_cfg.db_config["host"],
+            prg_cfg.db_config["port"],
+            prg_cfg.db_config["user"],
+            prg_cfg.db_config["passwd"],
         )
         ctx = click.get_current_context()
         for key,val in kwargs.items():
@@ -327,7 +301,6 @@ def agent_entry(**kwargs):
         await AgentConfiguration.initialize(**kwargs)
         if kwargs["initialize_db"]:
             logger.debug(strings.LOG_INITIALIZE_DB)
-            prg_cfg = ProgramConfiguration.get()
             exec_scripts = [
                 prg_cfg.piwigo_db_scripts.create_category_paths,
                 prg_cfg.piwigo_db_scripts.create_implicit_tags,

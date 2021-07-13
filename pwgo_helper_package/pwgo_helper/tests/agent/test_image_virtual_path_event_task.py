@@ -5,19 +5,20 @@ from unittest.mock import patch
 from path import Path
 import pytest
 
-from ...agent.config import Configuration
+from ...agent.config import Configuration as AgentConfig
+from ...config import Configuration as ProgramConfig
 from ...agent.image_virtual_path_event_task import ImageVirtualPathEventTask
 
 class TestImageVirtualPathEventTask:
     """Tests for the TestImageVirtualPathEventTask class"""
-    @patch.object(Configuration, "get")
-    def test_remove_path_recursive(self, mck_get_cfg, mocker):
+    @patch.object(AgentConfig, "get")
+    def test_remove_path_recursive(self, mck_get_acfg, mocker):
         """tests the basic functioning of the _remove_path class method"""
-        mck_get_cfg.return_value = Configuration()
-        mck_get_cfg.return_value.virtualfs_remove_empty_dirs = True
+        mck_get_acfg.return_value = AgentConfig()
+        mck_get_acfg.return_value.virtualfs_remove_empty_dirs = True
         spy_remove = mocker.spy(ImageVirtualPathEventTask, "_remove_path")
         with tempfile.TemporaryDirectory() as tmp_dir:
-            mck_get_cfg.return_value.virtualfs_root = tmp_dir
+            mck_get_acfg.return_value.virtualfs_root = tmp_dir
             tmp_dir_path = Path(tmp_dir)
             lvl1_path = tmp_dir_path.joinpath("lvl1")
             lvl2_path = lvl1_path.joinpath("lvl2")
@@ -33,14 +34,14 @@ class TestImageVirtualPathEventTask:
             assert not lvl1_path.exists()
             assert tmp_dir_path.exists()
 
-    @patch.object(Configuration, "get")
-    def test_remove_path_nonrecursive(self, mck_get_cfg, mocker):
+    @patch.object(AgentConfig, "get")
+    def test_remove_path_nonrecursive(self, mck_get_acfg, mocker):
         """tests the basic functioning of the _remove_path class method"""
-        mck_get_cfg.return_value = Configuration()
-        mck_get_cfg.return_value.virtualfs_remove_empty_dirs = False
+        mck_get_acfg.return_value = AgentConfig()
+        mck_get_acfg.return_value.virtualfs_remove_empty_dirs = False
         spy_remove = mocker.spy(ImageVirtualPathEventTask, "_remove_path")
         with tempfile.TemporaryDirectory() as tmp_dir:
-            mck_get_cfg.return_value.virtualfs_root = tmp_dir
+            mck_get_acfg.return_value.virtualfs_root = tmp_dir
             tmp_dir_path = Path(tmp_dir)
             lvl1_path = tmp_dir_path.joinpath("lvl1")
             lvl2_path = lvl1_path.joinpath("lvl2")
@@ -57,16 +58,18 @@ class TestImageVirtualPathEventTask:
             assert tmp_dir_path.exists()
 
     @pytest.mark.asyncio
-    @patch.object(Configuration, "get")
-    async def test_rebuild_fs(self, m_get_cfg, test_db, db_cfg):
+    @patch.object(AgentConfig, "get")
+    @patch.object(ProgramConfig, "get")
+    async def test_rebuild_fs(self, m_get_pcfg, m_get_acfg, test_db, db_cfg):
         """tests the proper functioning of the rebuild functionality"""
-        m_get_cfg.return_value = Configuration()
-        m_get_cfg.return_value.virtualfs_remove_empty_dirs = True
-        m_get_cfg.return_value.virtualfs_allow_broken_links = True
-        m_get_cfg.return_value.piwigo_galleries_host_path = "/tmp"
-        m_get_cfg.return_value.pwgo_db_config = db_cfg
+        m_get_acfg.return_value = AgentConfig()
+        m_get_acfg.return_value.virtualfs_remove_empty_dirs = True
+        m_get_acfg.return_value.virtualfs_allow_broken_links = True
+        m_get_acfg.return_value.piwigo_galleries_host_path = "/tmp"
+        m_get_pcfg.return_value = ProgramConfig()
+        m_get_pcfg.return_value.db_config = db_cfg
         with tempfile.TemporaryDirectory() as tmp_dir:
-            m_get_cfg.return_value.virtualfs_root = tmp_dir
+            m_get_acfg.return_value.virtualfs_root = tmp_dir
             tmp_dir_path = Path(tmp_dir)
             lvl1_path = tmp_dir_path.joinpath("lvl1")
             lvl2_path = lvl1_path.joinpath("lvl2")
