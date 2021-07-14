@@ -1,5 +1,5 @@
 """test setup utilities for pwgo_metadata_agent tests"""
-import tempfile,json,asyncio,os
+import asyncio,os
 from unittest.mock import MagicMock,patch
 
 import pytest
