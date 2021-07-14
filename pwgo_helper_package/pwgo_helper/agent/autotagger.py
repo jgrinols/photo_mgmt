@@ -96,22 +96,22 @@ class AutoTagger():
             await cnt_cur.execute(sql, (self.image.id))
             cnt = (await cnt_cur.fetchone())["cnt"]
 
-            if cnt:
-                self.logger.info("adding %s implicit tags for %s", cnt, self.image.file)
-                if not ProgramConfig.get().dry_run:
-                    async with DbConnectionPool.get().acquire_dict_cursor(db=cfg.pwgo_db_name) as (ins_cur,conn):
-                        sql = """
-                            INSERT INTO image_tag (image_id, tag_id)
-                            SELECT DISTINCT it.image_id, imp.implied_tag_id
-                            FROM image_tag it
-                            JOIN expanded_implicit_tags imp
-                            ON imp.triggered_by_tag_id = it.tag_id
-                            LEFT JOIN image_tag it2
-                            ON it2.image_id = it.image_id AND it2.tag_id = imp.implied_tag_id
-                            WHERE it.image_id = %s AND it2.image_id IS NULL
-                        """
-                        await ins_cur.execute(sql, (self.image.id))
-                        await conn.commit()
+        if cnt:
+            self.logger.info("adding %s implicit tags for %s", cnt, self.image.file)
+            if not ProgramConfig.get().dry_run:
+                async with DbConnectionPool.get().acquire_dict_cursor(db=cfg.pwgo_db_name) as (ins_cur,conn):
+                    sql = """
+                        INSERT INTO image_tag (image_id, tag_id)
+                        SELECT DISTINCT it.image_id, imp.implied_tag_id
+                        FROM image_tag it
+                        JOIN expanded_implicit_tags imp
+                        ON imp.triggered_by_tag_id = it.tag_id
+                        LEFT JOIN image_tag it2
+                        ON it2.image_id = it.image_id AND it2.tag_id = imp.implied_tag_id
+                        WHERE it.image_id = %s AND it2.image_id IS NULL
+                    """
+                    await ins_cur.execute(sql, (self.image.id))
+                    await conn.commit()
 
     async def add_tags(self, tags: List[int]) -> None:
         """accepts a list of tag ids and applies them to the image.
