@@ -1,10 +1,26 @@
 """the main pwgo_helper command entry point"""
+import os
+
 import click
+from dotenv import load_dotenv
 
 from .config import Configuration
 from .agent.metadata_agent import agent_entry
+from .icloud_dl.base import main
+
+MODULE_BASE_PATH = os.path.dirname(__file__)
+
+def _load_environment(_ctx, _opt, val):
+    if os.path.exists(val):
+        load_dotenv(dotenv_path=val)
+    return val
 
 @click.group()
+@click.option(
+    "--env-file",help="optional env file to use to setup environment",
+    type=click.Path(dir_okay=False), default=os.path.join(MODULE_BASE_PATH, ".env"),
+    callback=_load_environment, is_eager=True
+)
 @click.option(
     "--db-host",help="hostname for piwigo db connection",type=str,required=True
 )
@@ -44,3 +60,4 @@ def pwgo_helper_entry():
     pwgo_helper(auto_envvar_prefix="PWGO_HLPR")
 
 pwgo_helper.add_command(agent_entry)
+pwgo_helper.add_command(main)

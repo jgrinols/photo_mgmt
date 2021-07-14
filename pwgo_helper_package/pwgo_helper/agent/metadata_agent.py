@@ -1,5 +1,5 @@
 """Container module for the metadata agent service"""
-import signal, asyncio
+import signal, asyncio, random
 from asyncio.tasks import Task
 from asyncio.futures import Future
 
@@ -97,19 +97,20 @@ class MetadataAgent():
         """Starts a BinLogStreamReader to monitor for mysql events
         that need to be handled"""
 
-        cfg = ProgramConfiguration.get()
-        self._logger.info("Monitoring %s for metadata changes", cfg.pwgo_db_name)
+        prg_cfg = ProgramConfiguration.get()
+        agnt_cfg = AgentConfiguration.get()
+        self._logger.info("Monitoring %s for metadata changes", prg_cfg.pwgo_db_name)
 
         blog_args = {
             "connection_settings": {
-                "host": cfg.db_config["host"],
-                "port": cfg.db_config["port"],
-                "user": cfg.db_config["user"],
-                "passwd": cfg.db_config["passwd"]
+                "host": prg_cfg.db_config["host"],
+                "port": prg_cfg.db_config["port"],
+                "user": prg_cfg.db_config["user"],
+                "passwd": prg_cfg.db_config["passwd"]
             },
-            "server_id": 1,
-            "only_schemas": [cfg.pwgo_db_name, AgentConfiguration.get().msg_db],
-            "only_tables": AgentConfiguration.get().event_tables.keys(),
+            "server_id": random.randint(100, 999999999),
+            "only_schemas": [prg_cfg.pwgo_db_name, agnt_cfg.msg_db],
+            "only_tables": agnt_cfg.event_tables.keys(),
             "only_events": [WriteRowsEvent],
             "blocking": False,
             "resume_stream": True,
