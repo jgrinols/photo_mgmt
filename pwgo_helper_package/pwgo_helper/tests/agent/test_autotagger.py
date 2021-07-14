@@ -15,7 +15,6 @@ from ...agent.rekognition import RekognitionClient
 
 class TestAutotagger:
     """tests for the AutoTagger class"""
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
     @patch.object(ProgramConfig, "get")
@@ -30,7 +29,6 @@ class TestAutotagger:
             assert isinstance(tagger.image, PiwigoImage)
             assert tagger.image.file == "IMG_0958.JPG"
 
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
     @patch.object(ProgramConfig, "get")
@@ -44,7 +42,6 @@ class TestAutotagger:
         tag_ids = await AutoTagger._get_tag_ids_for_labels(labels=["snow","car","baby"])
         assert tag_ids == [31,32,34]
 
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
     @patch.object(ProgramConfig, "get")
@@ -59,7 +56,6 @@ class TestAutotagger:
         tag_ids = await AutoTagger._get_tags_for_match(face=mck_face_match)
         assert tag_ids == [22]
 
-    @pytest.mark.skip
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
     @patch.object(ProgramConfig, "get")
@@ -101,15 +97,17 @@ class TestAutotagger:
         m_get_acfg.return_value = a_cfg
         m_get_pcfg.return_value = p_cfg
         img_id = 22
-        async with test_db.acquire_dict_cursor(db="piwigo") as (cur,_):
+        async with test_db.acquire_dict_cursor(db="piwigo") as (cur,conn):
             sql = """
                 INSERT INTO image_tag (image_id, tag_id)
                 VALUES (%s, 28)
             """
             await cur.execute(sql, (img_id))
-            async with AutoTagger.create(img_id) as tagger:
-                await tagger.add_implicit_tags()
+            await conn.commit()
+        async with AutoTagger.create(img_id) as tagger:
+            await tagger.add_implicit_tags()
 
+        async with test_db.acquire_dict_cursor(db="piwigo") as (cur,_):
             sql = """
                 SELECT 1
                 FROM image_tag
