@@ -7,7 +7,7 @@
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8 */;
+/*!40101 SET NAMES utf8mb4 */;
 /*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
 /*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
@@ -20,10 +20,10 @@
 --
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `images` (
   `id` mediumint(8) unsigned NOT NULL AUTO_INCREMENT,
-  `file` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL DEFAULT '',
+  `file` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '',
   `date_available` datetime NOT NULL DEFAULT '1970-01-01 00:00:00',
   `date_creation` datetime DEFAULT NULL,
   `name` varchar(255) DEFAULT NULL,
@@ -55,7 +55,7 @@ CREATE TABLE `images` (
   KEY `images_i6` (`latitude`),
   KEY `lastmodified` (`lastmodified`),
   KEY `images_i7` (`path`)
-) ENGINE=MyISAM AUTO_INCREMENT=1196 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=1196 DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -73,13 +73,13 @@ UNLOCK TABLES;
 --
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `image_tag` (
   `image_id` mediumint(8) unsigned NOT NULL DEFAULT 0,
   `tag_id` smallint(5) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`image_id`,`tag_id`),
   KEY `image_tag_i1` (`tag_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -97,16 +97,16 @@ UNLOCK TABLES;
 --
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `tags` (
   `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL DEFAULT '',
-  `url_name` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL DEFAULT '',
+  `url_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '',
   `lastmodified` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `tags_i1` (`url_name`),
   KEY `lastmodified` (`lastmodified`)
-) ENGINE=MyISAM AUTO_INCREMENT=42 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=42 DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -124,7 +124,7 @@ UNLOCK TABLES;
 --
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `categories` (
   `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL DEFAULT '',
@@ -140,13 +140,13 @@ CREATE TABLE `categories` (
   `commentable` enum('true','false') NOT NULL DEFAULT 'true',
   `global_rank` varchar(255) DEFAULT NULL,
   `image_order` varchar(128) DEFAULT NULL,
-  `permalink` varchar(64) CHARACTER SET utf8 COLLATE utf8_bin DEFAULT NULL,
+  `permalink` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `lastmodified` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `categories_i3` (`permalink`),
   KEY `categories_i2` (`id_uppercat`),
   KEY `lastmodified` (`lastmodified`)
-) ENGINE=MyISAM AUTO_INCREMENT=135 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=135 DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -164,7 +164,7 @@ UNLOCK TABLES;
 --
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `image_category` (
   `image_id` mediumint(8) unsigned NOT NULL DEFAULT 0,
   `category_id` smallint(5) unsigned NOT NULL DEFAULT 0,
@@ -172,7 +172,7 @@ CREATE TABLE `image_category` (
   `smart` enum('true','false') NOT NULL DEFAULT 'false',
   PRIMARY KEY (`image_id`,`category_id`),
   KEY `image_category_i1` (`category_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
