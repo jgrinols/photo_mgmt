@@ -1,10 +1,10 @@
 python-dotenv
-click==6.7
-pymysql>=0.6,<1.0.0
+click
+pymysql
 aiomysql
-mysql-replication>=0.22
+mysql-replication
 path
-requests>=2.20.0
+requests
 beautifulsoup4
 py-linq
 aiobotocore
