@@ -18,7 +18,7 @@ jobs:
           token: ${{ secrets.REPO_ACCESS_TOKEN }}
       
       - name: install mysql client
-        run: apt-get update && apt-get -y install default-mysql-client
+        run: sudo apt-get update && sudo apt-get -y install default-mysql-client
       
       - name: build containers
         run: docker-compose up -d
