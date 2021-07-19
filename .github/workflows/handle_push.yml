@@ -31,7 +31,7 @@ jobs:
         timeout-minutes: 1
       
       - name: test pwgo_helper_pkg
-        run: docker exec dev-env pytest /workspace/pwgo_helper_package
+        run: docker exec dev-env pytest --showlocals --tb=long /workspace/pwgo_helper_package
       
       - name: stop containers
         run: docker-compose down
