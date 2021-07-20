@@ -17,7 +17,7 @@ class Configuration:
         """returns the Configuration singleton"""
         if not Configuration.instance:
             def_cfg = Configuration()
-            def_cfg.create_logger(__name__).warning("Program config is not initialized. Returning default config.")
+            def_cfg.get_logger(__name__).warning("Program config is not initialized. Returning default config.")
             return def_cfg
         return Configuration.instance
 
@@ -40,18 +40,20 @@ class Configuration:
         click_ctx = click.get_current_context()
         # only log init parameters if we have a click context
         # so we don't risk logging sensitive data
-        if click_ctx:
-            for key,val in kwargs.items():
-                show_val = val
+        for key,val in kwargs.items():
+            show_val = val
+            if click_ctx:
                 opt = [opt for opt in click_ctx.command.params if opt.name == key]
                 if opt and opt[0].hide_input:
                     show_val = "OMITTED"
-                cfg.create_logger(__name__).debug(strings.LOG_PRG_OPT(key,show_val))
+            else:
+                show_val = "OMITTED"
+            cfg.get_logger(__name__).debug(strings.LOG_PRG_OPT(key,show_val))
 
         Configuration.instance = cfg
 
     def __init__(self):
-        self.verbosity = "INFO"
+        self.verbosity = "NOTSET"
         self.dry_run = False
         self.initialization_args = None
         self.db_config = None
@@ -59,19 +61,22 @@ class Configuration:
         self.piwigo_db_scripts = PiwigoScripts()
         self.rekognition_db_scripts = RekognitionScripts()
 
-    def create_logger(self, name: str) -> logging.Logger:
+    def get_logger(self, name: str) -> logging.Logger:
         """function to generate a logger with given name and the configured verbosity"""
         logger = logging.getLogger(name)
-        logger.addFilter(TaskFilter())
         if not logger.hasHandlers():
-            v = self.verbosity
-            logger.setLevel(v)
             console_handler = logging.StreamHandler()
-            console_handler.setLevel(v)
+            console_handler.addFilter(TaskFilter())
             console_handler.setFormatter(
                 CustomFormatter("%(asctime)s - %(levelname)s - %(taskname)s: %(message)s", datefmt='%Y-%m-%d %H:%M:%S.%f')
             )
             logger.addHandler(console_handler)
+
+        if logger.level != getattr(logging, self.verbosity):
+            logger.setLevel(self.verbosity)
+            for handler in logger.handlers:
+                handler.setLevel(self.verbosity)
+
         return logger
 
 class PiwigoScripts:

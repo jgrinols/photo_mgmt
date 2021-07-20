@@ -12,7 +12,7 @@ def autodelete_photos(icloud, folder_structure, directory):
     from the download directory.
     (I.e. If you delete a photo on your phone, it's also deleted on your computer.)
     """
-    logger = ProgramConfig.get().create_logger(__name__)
+    logger = ProgramConfig.get().get_logger(__name__)
     logger.info("Deleting any files found in 'Recently Deleted'...")
 
     recently_deleted = icloud.photos.albums["Recently Deleted"]

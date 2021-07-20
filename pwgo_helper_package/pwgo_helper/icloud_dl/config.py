@@ -41,7 +41,7 @@ class Configuration():
         """returns the Configuration singleton"""
         if not Configuration.instance:
             def_cfg = Configuration()
-            ProgramConfig.get().create_logger(__name__) \
+            ProgramConfig.get().get_logger(__name__) \
                 .warning("icloud-dl config is not initialized. Returning default config.")
             return def_cfg
         return Configuration.instance
@@ -66,7 +66,7 @@ class Configuration():
                 opt = [opt for opt in click_ctx.command.params if opt.name == key]
                 if opt and opt[0].hide_input:
                     show_val = "OMITTED"
-                prg_cfg.create_logger(__name__).debug(strings.LOG_ICDL_OPT(key,show_val))
+                prg_cfg.get_logger(__name__).debug(strings.LOG_ICDL_OPT(key,show_val))
 
         if not cfg.list_albums and not cfg.directory:
             raise RuntimeError('--directory or --list-albums are required')

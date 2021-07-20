@@ -9,7 +9,7 @@ from ..config import Configuration as ProgramConfig
 class FileMetadataWriter():
     """Synchronizes Piwigo image metadata from the database into exif/iptc fields in the physical file"""
     def __init__(self, img: PiwigoImage):
-        self._logger = ProgramConfig.get().create_logger(__name__)
+        self._logger = ProgramConfig.get().get_logger(__name__)
         self.image = img
         self._exit_stack = None
         self._img_data = None

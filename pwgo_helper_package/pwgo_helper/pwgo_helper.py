@@ -1,5 +1,5 @@
 """the main pwgo_helper command entry point"""
-import os
+import os, uuid
 
 import click
 from dotenv import load_dotenv
@@ -11,11 +11,12 @@ from .icloud_dl.base import main
 MODULE_BASE_PATH = os.path.dirname(__file__)
 
 def _load_environment(_ctx, _opt, val):
-    logger = Configuration.get().create_logger(__name__)
-    logger.debug("attempting to load environment from %s", val)
-    if val and os.path.exists(val):
-        logger.debug("file exists...loading environment...")
-        load_dotenv(dotenv_path=val, verbose=True)
+    logger = Configuration.get().get_logger(str(uuid.uuid4())[0:8])
+    if val:
+        logger.info("attempting to load environment from %s", val)
+        if os.path.exists(val):
+            logger.info("file exists...loading environment...")
+            load_dotenv(dotenv_path=val, verbose=True)
     return val
 
 @click.group()
@@ -42,8 +43,8 @@ def _load_environment(_ctx, _opt, val):
 @click.option(
     "-v", "--verbosity",
     help="specifies the verbosity of the log output",
-    type=click.Choice(["CRITICAL","ERROR","WARNING","INFO","DEBUG"]),
-    default="INFO"
+    type=click.Choice(["CRITICAL","ERROR","WARNING","INFO","DEBUG","NOTSET"]),
+    default="NOTSET"
 )
 @click.option(
     "--dry-run",
@@ -55,7 +56,7 @@ def pwgo_helper(
 ):
     """the main pwgo_helper command entry point"""
     Configuration.initialize(**kwargs)
-    logger = Configuration.get().create_logger(__name__)
+    logger = Configuration.get().get_logger(__name__)
     logger.debug("Execeuting pwgo_helper command")
 
 def pwgo_helper_entry():

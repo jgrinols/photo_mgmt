@@ -13,7 +13,7 @@ def wait_for_mfa_code():
     to messaging db"""
     prg_cfg = ProgramConfig.get()
     icdl_cfg = ICDLConfig.get()
-    logger = prg_cfg.create_logger(__name__)
+    logger = prg_cfg.get_logger(__name__)
     code = None
     stream = BinLogStreamReader(
         connection_settings = {
@@ -59,7 +59,7 @@ def authenticate(client_id=None):
     """Authenticate with iCloud username and password"""
     prg_cfg = ProgramConfig.get()
     icdl_cfg = ICDLConfig.get()
-    logger = prg_cfg.create_logger(__name__)
+    logger = prg_cfg.get_logger(__name__)
     logger.debug("Authenticating...")
     icloud = pyicloud_ipd.PyiCloudService(
         icdl_cfg.username, icdl_cfg.password,
@@ -76,7 +76,7 @@ def request_mfa_code(icloud):
     """Request two-step authentication. Prompts for SMS or device"""
     prg_cfg = ProgramConfig.get()
     icdl_cfg = ICDLConfig.get()
-    logger = prg_cfg.create_logger(__name__)
+    logger = prg_cfg.get_logger(__name__)
     devices = icloud.trusted_devices
     devices_count = len(devices)
     device_index = next((i for i, d in enumerate(devices) if d["deviceType"] == "SMS" and d["phoneNumber"]

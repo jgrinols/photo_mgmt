@@ -129,7 +129,7 @@ from .counter import Counter
 def main(**kwargs):
     """Download all iCloud photos to a local directory"""
     prg_cfg = ProgramConfig.get()
-    logger = prg_cfg.create_logger(__name__)
+    logger = prg_cfg.get_logger(__name__)
     ICDLConfig.initialize(**kwargs)
     icdl_cfg = ICDLConfig.get()
 

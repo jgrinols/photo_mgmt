@@ -44,7 +44,7 @@ class ImageMetadataEventTask(EventTask):
     @classmethod
     def resolve_event_task(cls, evt: ImageEventRow) -> asyncio.Future:
         # pylint: disable=protected-access
-        logger = ProgramConfig.get().create_logger(__name__)
+        logger = ProgramConfig.get().get_logger(__name__)
         result_fut: asyncio.Future = None
         existing_task = next((t for t in cls._pending_tasks if t.image_id == evt.image_id), None)
         if existing_task:

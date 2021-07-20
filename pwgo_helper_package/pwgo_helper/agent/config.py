@@ -44,7 +44,7 @@ class Configuration():
         """returns the Configuration singleton"""
         if not Configuration.instance:
             def_cfg = Configuration()
-            ProgramConfig.get().create_logger(__name__).warning("Agent config is not initialized. Returning default config.")
+            ProgramConfig.get().get_logger(__name__).warning("Agent config is not initialized. Returning default config.")
             return def_cfg
         return Configuration.instance
 

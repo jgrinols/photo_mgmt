@@ -25,7 +25,7 @@ class EventTask(ABC):
         """gets a logger..."""
         if not name:
             name = __name__
-        return ProgramConfig.get().create_logger(name)
+        return ProgramConfig.get().get_logger(name)
 
     @classmethod
     def register_table_task_types(cls, sub_classes):

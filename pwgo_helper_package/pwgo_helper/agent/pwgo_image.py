@@ -16,7 +16,7 @@ class PiwigoImage:
     @staticmethod
     def get_logger():
         """gets a logger object"""
-        return ProgramConfig.get().create_logger(__name__)
+        return ProgramConfig.get().get_logger(__name__)
 
     def __init__(self, **kwargs):
         self.logger = PiwigoImage.get_logger()

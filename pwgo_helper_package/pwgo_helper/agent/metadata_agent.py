@@ -279,7 +279,7 @@ class MetadataAgent():
 )
 def agent_entry(**kwargs):
     """Command used to auto generate related tags when a new tag is inserted in database"""
-    logger = ProgramConfiguration.get().create_logger(__name__)
+    logger = ProgramConfiguration.get().get_logger(__name__)
 
     logger.info("metadata_agent entry")
     async def exec_metadata_agent(**kwargs):

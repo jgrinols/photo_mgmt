@@ -25,7 +25,7 @@ class ImageVirtualPathEventTask(EventTask):
     @staticmethod
     def get_logger():
         """gets a logger..."""
-        return ProgramConfig.get().create_logger(__name__)
+        return ProgramConfig.get().get_logger(__name__)
 
     @classmethod
     def get_pending_tasks(cls) -> list[ImageVirtualPathEventTask]:
