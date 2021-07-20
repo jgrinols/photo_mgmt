@@ -11,14 +11,17 @@ from .icloud_dl.base import main
 MODULE_BASE_PATH = os.path.dirname(__file__)
 
 def _load_environment(_ctx, _opt, val):
+    logger = Configuration.get().create_logger(__name__)
+    logger.debug("attempting to load environment from %s", val)
     if os.path.exists(val):
-        load_dotenv(dotenv_path=val)
+        logger.debug("file exists...loading environment...")
+        load_dotenv(dotenv_path=val, verbose=True)
     return val
 
 @click.group()
 @click.option(
     "--env-file",help="optional env file to use to setup environment",
-    type=click.Path(dir_okay=False), default=os.path.join(MODULE_BASE_PATH, ".env"),
+    type=click.Path(dir_okay=False, exists=True), default=os.path.join(MODULE_BASE_PATH, ".env"),
     callback=_load_environment, is_eager=True
 )
 @click.option(
