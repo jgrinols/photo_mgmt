@@ -13,7 +13,7 @@ MODULE_BASE_PATH = os.path.dirname(__file__)
 def _load_environment(_ctx, _opt, val):
     logger = Configuration.get().create_logger(__name__)
     logger.debug("attempting to load environment from %s", val)
-    if os.path.exists(val):
+    if val and os.path.exists(val):
         logger.debug("file exists...loading environment...")
         load_dotenv(dotenv_path=val, verbose=True)
     return val
