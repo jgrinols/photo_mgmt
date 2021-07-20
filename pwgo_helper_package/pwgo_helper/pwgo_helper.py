@@ -21,7 +21,7 @@ def _load_environment(_ctx, _opt, val):
 @click.group()
 @click.option(
     "--env-file",help="optional env file to use to setup environment",
-    type=click.Path(dir_okay=False, exists=True), default=os.path.join(MODULE_BASE_PATH, ".env"),
+    type=click.Path(dir_okay=False, exists=True),
     callback=_load_environment, is_eager=True
 )
 @click.option(
