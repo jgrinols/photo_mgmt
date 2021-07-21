@@ -36,7 +36,7 @@ class Configuration():
         return Configuration.instance
 
     @staticmethod
-    async def initialize(**kwargs):
+    def initialize(**kwargs):
         """Initialize configuration values"""
         logger = ProgramConfig.get().get_logger(__name__)
         cfg = Configuration()
