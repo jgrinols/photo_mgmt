@@ -290,7 +290,7 @@ def agent_entry(**kwargs):
             prg_cfg.db_config["host"],
             prg_cfg.db_config["port"],
             prg_cfg.db_config["user"],
-            prg_cfg.db_config["passwd"],
+            prg_cfg.db_config["passwd"]
         )
         ctx = click.get_current_context()
         for key,val in kwargs.items():
