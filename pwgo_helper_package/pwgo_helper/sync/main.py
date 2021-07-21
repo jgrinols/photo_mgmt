@@ -103,7 +103,7 @@ def sync():
                 raise RuntimeError("error while calculating missing md5 hashes")
             else:
                 md5_response_data = json.loads(md5_response.text)
-                logger.info("added hashes for %s photos", md5_response_data["nb_added"])
+                logger.info("added hashes for %s photos", md5_response_data["result"]["nb_added"])
 
 @click.command("sync")
 @click.option(
