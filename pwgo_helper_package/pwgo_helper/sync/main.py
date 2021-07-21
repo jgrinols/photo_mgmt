@@ -9,10 +9,11 @@ from bs4 import BeautifulSoup
 from ..config import Configuration as ProgramConfig
 from .config import Configuration as SyncConfig
 
-def _sync_single():
+def _login() -> requests.Session:
     prg_cfg = ProgramConfig.get()
     logger = prg_cfg.get_logger(__name__)
     sync_cfg = SyncConfig.get()
+
     login_data = {
         "method": "pwg.session.login",
         "username": sync_cfg.user,
@@ -22,15 +23,22 @@ def _sync_single():
     session = requests.Session()
     logger.info("Login: ...")
     login_params = { "format": "json" }
-    login_url = urljoin(sync_cfg.base_url, sync_cfg.login_path)
+    login_url = urljoin(sync_cfg.base_url, sync_cfg.service_path)
     login_response = session.post(login_url, params=login_params, data=login_data)
     logger.debug(login_response.text)
     resp_json = json.loads(login_response.text)
     if not "result" in resp_json or not resp_json["result"]:
         logger.fatal(resp_json["message"])
-        raise Exception("Login Failed!")
+        raise RuntimeError("Login Failed!")
     logger.info("Login: OK")
     logger.debug(login_response.text)
+
+    return session
+
+def _sync_single(session: requests.Session):
+    prg_cfg = ProgramConfig.get()
+    logger = prg_cfg.get_logger(__name__)
+    sync_cfg = SyncConfig.get()
 
     sync_data = {
         "sync": "dirs" if sync_cfg.directories_only else "files",
@@ -58,17 +66,43 @@ def _sync_single():
 
     return sync_response, (time_end - time_start)
 
+def _compute_missing_hashes(session: requests.Session) -> requests.Response:
+    prg_cfg = ProgramConfig.get()
+    logger = prg_cfg.get_logger(__name__)
+    sync_cfg = SyncConfig.get()
+    logger.info("adding any missing photo md5 hashes...")
+
+    compute_md5_params = { "format": "json", "method": "pwg.images.setMd5sum" }
+    compute_md5_url = urljoin(sync_cfg.base_url, sync_cfg.service_path)
+    compute_md5_response = session.post(compute_md5_url, params=compute_md5_params)
+
+    return compute_md5_response
+
 def sync():
     """execute the sync operation"""
     logger = ProgramConfig.get().get_logger(__name__)
-    response, duration = _sync_single()
+    session = _login()
+    response, duration = _sync_single(session)
     logger.info("Status: %s, Duration: %s", response.status_code, duration)
     if response.status_code == 504:
         logger.warning("Received status code 504. It appears the sync operation is taking longer than normal.")
+    elif not response.ok:
+        logger.error(response.text)
+        raise RuntimeError("error while syncing photos")
     else:
         parsed_response = BeautifulSoup(response.text, "html.parser")
         for item in parsed_response.select("li[class^=update_summary]"):
             logger.info(item.text)
+
+        if SyncConfig.get().add_missing_md5:
+            logger.info("calculating any missing photo md5 hashes")
+            md5_response = _compute_missing_hashes(session)
+            if not md5_response.ok:
+                logger.error(md5_response.text)
+                raise RuntimeError("error while calculating missing md5 hashes")
+            else:
+                md5_response_data = json.loads(md5_response.text)
+                logger.info("added hashes for %s photos", md5_response_data["nb_added"])
 
 @click.command("sync")
 @click.option(
@@ -99,6 +133,10 @@ def sync():
 @click.option(
     "--add-to-caddie", is_flag=True,
     help="should synced files be added to the caddie"
+)
+@click.option(
+    "--add-missing-md5", is_flag=True,
+    help="should md5 hashes be computed for any photos where they're missing"
 )
 @click.option(
     "--file-access-level", type=click.Choice(["All", "Contacts", "Friends", "Family", "Admins"]),

@@ -13,7 +13,7 @@ class Configuration():
     }
 
     def __init__(self):
-        self.login_path = "ws.php"
+        self.service_path = "ws.php"
         self.sync_path = "admin.php"
 
         self.initialization_args: dict = None
@@ -25,6 +25,7 @@ class Configuration():
         self.privacy_level: int = 8
         self.directories_only: bool = False
         self.add_to_caddie: bool = False
+        self.add_missing_md5: bool = False
 
     @staticmethod
     def get() -> Configuration:
