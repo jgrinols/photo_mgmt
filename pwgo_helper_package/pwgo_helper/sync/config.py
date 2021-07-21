@@ -14,7 +14,7 @@ class Configuration():
 
     def __init__(self):
         self.service_path = "ws.php"
-        self.sync_path = "admin.php"
+        self.admin_path = "admin.php"
 
         self.initialization_args: dict = None
         self.base_url: str = None
@@ -26,6 +26,7 @@ class Configuration():
         self.directories_only: bool = False
         self.add_to_caddie: bool = False
         self.add_missing_md5: bool = False
+        self.md5_block_size: int = 1
 
     @staticmethod
     def get() -> Configuration:

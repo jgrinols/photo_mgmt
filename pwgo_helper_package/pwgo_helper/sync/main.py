@@ -57,7 +57,7 @@ def _sync_single(session: requests.Session):
     logger.debug("executing sync request with config:\n%s", sync_data)
 
     time_start = time.time()
-    sync_url = urljoin(sync_cfg.base_url, sync_cfg.sync_path)
+    sync_url = urljoin(sync_cfg.base_url, sync_cfg.admin_path)
     sync_params = { "page": "site_update", "site": "1" }
     sync_response = session.post(sync_url, params=sync_params, data=sync_data)
     time_end = time.time()
@@ -66,18 +66,52 @@ def _sync_single(session: requests.Session):
 
     return sync_response, (time_end - time_start)
 
-def _compute_missing_hashes(session: requests.Session) -> requests.Response:
+def _get_pwg_token(session: requests.Session) -> str:
+    prg_cfg = ProgramConfig.get()
+    logger = prg_cfg.get_logger(__name__)
+    sync_cfg = SyncConfig.get()
+
+    logger.info("retrieving pwg token")
+    token_url = urljoin(sync_cfg.base_url, sync_cfg.admin_path)
+    token_params = { "page": "batch_manager" }
+    token_response = session.get(token_url, params=token_params)
+
+    parsed_response = BeautifulSoup(token_response.text, "html.parser")
+    token_input = parsed_response.find("input", { "name": "pwg_token" })
+    if token_input:
+        return token_input.get("value")
+    else:
+        raise RuntimeError("error retrieving pwg token")
+
+def _compute_missing_hashes(session: requests.Session, token: str) -> int:
     prg_cfg = ProgramConfig.get()
     logger = prg_cfg.get_logger(__name__)
     sync_cfg = SyncConfig.get()
     logger.info("adding any missing photo md5 hashes...")
+    hashes_added = 0
 
     compute_md5_params = { "format": "json", "method": "pwg.images.setMd5sum" }
-    compute_md5_data = { "block_size": "1" }
+    compute_md5_data = {
+        "block_size": str(sync_cfg.md5_block_size),
+        "pwg_token": token
+    }
     compute_md5_url = urljoin(sync_cfg.base_url, sync_cfg.service_path)
     compute_md5_response = session.post(compute_md5_url, params=compute_md5_params, data=compute_md5_data)
 
-    return compute_md5_response
+    if not compute_md5_response.ok:
+        logger.error(compute_md5_response.text)
+        raise RuntimeError("error while calculating missing md5 hashes")
+    else:
+        logger.debug("compute md5 response: %s", compute_md5_response.text)
+        md5_response_data = json.loads(compute_md5_response.text)
+        if "result" in compute_md5_response and md5_response_data["result"]:
+            logger.info("added hashes for %s photos", md5_response_data["result"]["nb_added"])
+            logger.info("%s remaining photos with no hash", md5_response_data["result"]["nb_no_md5sum"])
+            hashes_added += md5_response_data["result"]["nb_added"]
+            if int(md5_response_data["result"]["nb_no_md5sum"]):
+                hashes_added += _compute_missing_hashes(session, token)
+
+    return hashes_added
 
 def sync():
     """execute the sync operation"""
@@ -96,16 +130,9 @@ def sync():
             logger.info(item.text)
 
         if not ProgramConfig.get().dry_run and SyncConfig.get().add_missing_md5:
-            logger.info("calculating any missing photo md5 hashes")
-            md5_response = _compute_missing_hashes(session)
-            if not md5_response.ok:
-                logger.error(md5_response.text)
-                raise RuntimeError("error while calculating missing md5 hashes")
-            else:
-                logger.debug("compute md5 response: %s", md5_response.text)
-                md5_response_data = json.loads(md5_response.text)
-                if "result" in md5_response and md5_response_data["result"]:
-                    logger.info("added hashes for %s photos", md5_response_data["result"]["nb_added"])
+            token = _get_pwg_token(session)
+            hashes_added = _compute_missing_hashes(session, token)
+            logger.info("added %s missing hashes", hashes_added)
 
 @click.command("sync")
 @click.option(
@@ -145,6 +172,10 @@ def sync():
     "--file-access-level", type=click.Choice(["All", "Contacts", "Friends", "Family", "Admins"]),
     help="who should be able to see the imported media",
     required=True, default="Admins"
+)
+@click.option(
+    "--md5-block-size", type=click.INT, help="number of hashes to compute per request",
+    required=True, default=1
 )
 def sync_entry(**kwargs):
     logger = ProgramConfig.get().get_logger(__name__)
