@@ -49,7 +49,7 @@ def _sync_single():
     logger.debug("executing sync request with config:\n%s", sync_data)
 
     time_start = time.time()
-    sync_url = urljoin(sync_cfg.base_url, "/admin.php")
+    sync_url = urljoin(sync_cfg.base_url, sync_cfg.sync_path)
     sync_params = { "page": "site_update", "site": "1" }
     sync_response = session.post(sync_url, params=sync_params, data=sync_data)
     time_end = time.time()
@@ -73,7 +73,7 @@ def sync():
 
 @click.command("sync")
 @click.option(
-    "-b", "--piwigo-base-url",
+    "-b", "--base-url",
     help="url specifiying the web root of the Piwigo installation", required=True,
 )
 @click.option(
