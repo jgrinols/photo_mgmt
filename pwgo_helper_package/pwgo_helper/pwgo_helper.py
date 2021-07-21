@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from .config import Configuration
 from .agent.metadata_agent import agent_entry
 from .icloud_dl.base import main
+from .sync.main import sync_entry
 
 MODULE_BASE_PATH = os.path.dirname(__file__)
 
@@ -65,3 +66,4 @@ def pwgo_helper_entry():
 
 pwgo_helper.add_command(agent_entry)
 pwgo_helper.add_command(main)
+pwgo_helper.add_command(sync_entry)
