@@ -104,7 +104,7 @@ def _compute_missing_hashes(session: requests.Session, token: str) -> int:
     else:
         logger.debug("compute md5 response: %s", compute_md5_response.text)
         md5_response_data = json.loads(compute_md5_response.text)
-        if "result" in compute_md5_response and md5_response_data["result"]:
+        if "result" in md5_response_data and md5_response_data["result"]:
             logger.info("added hashes for %s photos", md5_response_data["result"]["nb_added"])
             logger.info("%s remaining photos with no hash", md5_response_data["result"]["nb_no_md5sum"])
             hashes_added += md5_response_data["result"]["nb_added"]
