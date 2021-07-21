@@ -73,8 +73,9 @@ def _compute_missing_hashes(session: requests.Session) -> requests.Response:
     logger.info("adding any missing photo md5 hashes...")
 
     compute_md5_params = { "format": "json", "method": "pwg.images.setMd5sum" }
+    compute_md5_data = { "block_size": "1" }
     compute_md5_url = urljoin(sync_cfg.base_url, sync_cfg.service_path)
-    compute_md5_response = session.post(compute_md5_url, params=compute_md5_params)
+    compute_md5_response = session.post(compute_md5_url, params=compute_md5_params, data=compute_md5_data)
 
     return compute_md5_response
 
