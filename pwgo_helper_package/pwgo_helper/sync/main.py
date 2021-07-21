@@ -16,7 +16,7 @@ def _sync_single():
     login_data = {
         "method": "pwg.session.login",
         "username": sync_cfg.user,
-        "password": sync_cfg.password.readline().rstrip()
+        "password": sync_cfg.password
     }
 
     session = requests.Session()
