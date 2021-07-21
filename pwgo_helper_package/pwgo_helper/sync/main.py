@@ -54,7 +54,6 @@ def _sync_single():
     sync_response = session.post(sync_url, params=sync_params, data=sync_data)
     time_end = time.time()
     session.close()
-    logger.debug(sync_response.text)
     logger.info("Connection closed")
 
     return sync_response, (time_end - time_start)
