@@ -1,8 +1,9 @@
 """entry module for the icloud-dl command"""
 from __future__ import print_function
-import os, sys, time, datetime, json, subprocess, itertools
+import os, sys, time, datetime, json, subprocess, itertools, asyncio
 
 import click
+from pwgo_helper.db_connection_pool import DbConnectionPool
 import pymysql
 import pymysql.cursors
 from pyicloud_ipd.exceptions import PyiCloudAPIResponseError
@@ -15,6 +16,7 @@ from .string_helpers import truncate_middle
 from .autodelete import autodelete_photos
 from .paths import local_download_path
 from .counter import Counter
+from ..asyncio import get_task
 
 @click.command("icdownload")
 @click.option(
@@ -127,11 +129,28 @@ from .counter import Counter
     help="name of the database used for tracking downloads"
 )
 def main(**kwargs):
+    ICDLConfig.initialize(**kwargs)
+    loop = asyncio.get_event_loop()
+    loop.set_task_factory(get_task)
+    try:
+        loop.run_until_complete(run())
+    finally:
+        if DbConnectionPool.is_initialized():
+            DbConnectionPool.get().terminate()
+
+async def run():
     """Download all iCloud photos to a local directory"""
     prg_cfg = ProgramConfig.get()
-    logger = prg_cfg.get_logger(__name__)
-    ICDLConfig.initialize(**kwargs)
     icdl_cfg = ICDLConfig.get()
+    asyncio.current_task().set_name("run-downloader")
+    logger = prg_cfg.get_logger(__name__)
+    logger.debug("initializing database connection pool...")
+    await DbConnectionPool.initialize(
+        prg_cfg.db_config["host"],
+        prg_cfg.db_config["port"],
+        prg_cfg.db_config["user"],
+        prg_cfg.db_config["passwd"]
+    )
 
     icloud = authenticate(client_id=os.environ.get("CLIENT_ID"))
 
@@ -156,30 +175,19 @@ def main(**kwargs):
 
     directory = os.path.normpath(icdl_cfg.directory)
 
-    con = pymysql.connect(
-        host = prg_cfg.db_config["host"],
-        user = prg_cfg.db_config["user"],
-        passwd = prg_cfg.db_config["passwd"],
-        db = icdl_cfg.tracking_db,
-        cursorclass = pymysql.cursors.DictCursor)
-    limit_str = ""
-    if not icdl_cfg.recent is None:
-        limit_str = "LIMIT {0}".format(icdl_cfg.recent * 2)
-    get_ids_sql = f"""
-        SELECT MasterRecordId
-        FROM download_log
-        WHERE Account = %s
-        ORDER BY MediaCreatedDateTime DESC
-        {limit_str};
-    """
-
-    try:
-        with con.cursor() as cur:
-            cur.execute(get_ids_sql, icdl_cfg.username)
-            prev_ids = cur.fetchall()
-
-    finally:
-        con.close()
+    async with DbConnectionPool.get().acquire_dict_cursor(db=icdl_cfg.tracking_db) as (cur,_):
+        limit_str = ""
+        if not icdl_cfg.recent is None:
+            limit_str = "LIMIT {0}".format(icdl_cfg.recent * 2)
+        get_ids_sql = f"""
+            SELECT MasterRecordId
+            FROM download_log
+            WHERE Account = %s
+            ORDER BY MediaCreatedDateTime DESC
+            {limit_str};
+        """
+        await cur.execute(get_ids_sql, icdl_cfg.username)
+        prev_ids = await cur.fetchall()
 
     logger.debug(
         "Looking up all photos%s from album %s...",
@@ -229,7 +237,7 @@ def main(**kwargs):
 
     photos_enumerator = photos
 
-    def download_photo(counter, photo):
+    async def download_photo(counter, photo):
         """internal function for actually downloading the photos"""
         item_result = {
             "item": photo.filename,
@@ -361,24 +369,24 @@ def main(**kwargs):
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """
 
-                    try:
-                        with con.cursor() as cur:
-                            cur.execute(insert_tracking_sql, (
-                                photo.id,
-                                icdl_cfg.username,
-                                photo.item_type,
-                                photo.filename,
-                                download_path,
-                                created_date
-                            ))
-                            con.commit()
+                    async with DbConnectionPool.get().acquire_dict_cursor(db=icdl_cfg.tracking_db) as (cur,conn):
+                        try:
+                            await cur.execute(insert_tracking_sql, (
+                                    photo.id,
+                                    icdl_cfg.username,
+                                    photo.item_type,
+                                    photo.filename,
+                                    download_path,
+                                    created_date
+                                ))
+                            await conn.commit()
                             item_result["disposition_items"] \
                                 .append("tracked: inserted record into tracking db.")
-                    except pymysql.Error as err:
-                        logger.exception("Error inserting tracking record")
-                        con.close()
-                        os.remove(download_path)
-                        raise
+
+                        except pymysql.Error as err:
+                            logger.exception("Error inserting tracking record")
+                            os.remove(download_path)
+                            raise
 
         return item_result
 
@@ -396,13 +404,12 @@ def main(**kwargs):
                 logger.info("Found %s consecutive previously downloaded photos. Exiting", icdl_cfg.until_found)
                 break
             item = next(photos_iterator)
-            download_results.append(download_photo(consecutive_files_found, item))
+            download_results.append(await download_photo(consecutive_files_found, item))
         except StopIteration:
             break
 
     deletions = []
     if not icdl_cfg.only_print_filenames:
-        con.close()
         logger.info("All photos have been downloaded!")
 
         if icdl_cfg.auto_delete:

@@ -12,6 +12,11 @@ class DbConnectionPool():
     def __init__(self, pool):
         self.__pool = pool
 
+    @classmethod
+    def is_initialized(cls) -> bool:
+        """is the DbConnectionPool singleton initialized"""
+        return cls.instance is not None
+
     @staticmethod
     def get() -> DbConnectionPool:
         """gets the DbConnectionPool singleton"""
