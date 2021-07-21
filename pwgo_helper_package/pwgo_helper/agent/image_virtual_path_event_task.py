@@ -8,7 +8,7 @@ from .database_event_row import ImageEventRow
 from .event_task import EventTask
 from ..config import Configuration as ProgramConfig
 from .config import Configuration as AgentConfig
-from .db_connection_pool import DbConnectionPool
+from ..db_connection_pool import DbConnectionPool
 from . import strings
 
 class ImageVirtualPathEventTask(EventTask):

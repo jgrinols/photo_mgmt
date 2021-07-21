@@ -9,7 +9,7 @@ from typing import Dict
 from . import utilities
 from ..config import Configuration as ProgramConfig
 from .config import Configuration as AgentConfig
-from .db_connection_pool import DbConnectionPool
+from ..db_connection_pool import DbConnectionPool
 
 class PiwigoImage:
     """Class which encapsulates the core attributes of an image in the Piwigo db."""

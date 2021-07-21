@@ -5,7 +5,7 @@ from unittest.mock import MagicMock,patch
 import pytest
 from aiomysql.cursors import DictCursor
 
-from ...agent.db_connection_pool import DbConnectionPool
+from ...db_connection_pool import DbConnectionPool
 from ...agent.utilities import parse_sql
 from ...config import Configuration as ProgramConfig
 

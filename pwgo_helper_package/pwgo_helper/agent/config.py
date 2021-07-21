@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .db_connection_pool import DbConnectionPool
+from ..db_connection_pool import DbConnectionPool
 from ..config import Configuration as ProgramConfig
 
 class Configuration():

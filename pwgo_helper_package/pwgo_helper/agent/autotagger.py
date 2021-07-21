@@ -10,7 +10,7 @@ from py_linq import Enumerable
 from . import strings
 from ..config import Configuration as ProgramConfig
 from .config import Configuration as AgentConfig
-from .db_connection_pool import DbConnectionPool
+from ..db_connection_pool import DbConnectionPool
 from .pwgo_image import PiwigoImage
 from .rekognition import RekognitionClient
 from . import utilities

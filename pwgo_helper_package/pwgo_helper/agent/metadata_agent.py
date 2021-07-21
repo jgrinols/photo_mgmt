@@ -15,7 +15,7 @@ from ..config import Configuration as ProgramConfiguration
 from .config import Configuration as AgentConfiguration
 from .autotagger import AutoTagger
 from .pwgo_image import PiwigoImage
-from .db_connection_pool import DbConnectionPool as DbPool
+from ..db_connection_pool import DbConnectionPool as DbPool
 from .image_virtual_path_event_task import ImageVirtualPathEventTask
 from .utilities import parse_sql
 from ..asyncio import get_task
