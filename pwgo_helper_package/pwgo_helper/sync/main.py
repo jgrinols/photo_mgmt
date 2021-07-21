@@ -94,7 +94,7 @@ def sync():
         for item in parsed_response.select("li[class^=update_summary]"):
             logger.info(item.text)
 
-        if SyncConfig.get().add_missing_md5:
+        if not ProgramConfig.get().dry_run and SyncConfig.get().add_missing_md5:
             logger.info("calculating any missing photo md5 hashes")
             md5_response = _compute_missing_hashes(session)
             if not md5_response.ok:
