@@ -52,6 +52,9 @@ def _load_environment(_ctx, _opt, val):
     help="don't actually do anything--just pretend",
     is_flag=True
 )
+@click.option(
+    "--slack-webhook-url", help="url for posting error alerts to a slack channel"
+)
 def pwgo_helper(
     **kwargs
 ):

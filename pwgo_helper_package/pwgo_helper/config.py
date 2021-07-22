@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 
 import click
+from slack_logger import SlackHandler
 
 from . import strings
 from .logging import CustomFormatter, TaskFilter
@@ -60,21 +61,33 @@ class Configuration:
         self.pwgo_db_name = "piwigo"
         self.piwigo_db_scripts = PiwigoScripts()
         self.rekognition_db_scripts = RekognitionScripts()
+        self.slack_webhook_url = None
 
     def get_logger(self, name: str) -> logging.Logger:
         """function to generate a logger with given name and the configured verbosity"""
         logger = logging.getLogger(name)
         if not logger.hasHandlers():
+            logger.setLevel("NOTSET")
             console_handler = logging.StreamHandler()
+            console_handler.setLevel("NOTSET")
             console_handler.addFilter(TaskFilter())
             console_handler.setFormatter(
                 CustomFormatter("%(asctime)s - %(levelname)s - %(taskname)s: %(message)s", datefmt='%Y-%m-%d %H:%M:%S.%f')
             )
             logger.addHandler(console_handler)
+            if self.slack_webhook_url:
+                slack_handler = SlackHandler(self.slack_webhook_url)
+                slack_handler.setLevel("ERROR")
+                # pylint: disable=line-too-long
+                slack_handler.setFormatter(CustomFormatter(
+                        '%(levelname)s - logger %(name)s generated message from [%(module)s].[%(funcName)s] (%(lineno)s) at %(asctime)s',
+                        datefmt='%Y-%m-%d %H:%M:%S.%f'
+                    ))
+                logger.addHandler(slack_handler)
 
         if logger.level != getattr(logging, self.verbosity):
             logger.setLevel(self.verbosity)
-            for handler in logger.handlers:
+            for handler in [h for h in logger.handlers if h.level == "NOTSET"]:
                 handler.setLevel(self.verbosity)
 
         return logger
