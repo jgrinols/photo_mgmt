@@ -45,32 +45,50 @@ class ImageMetadataEventTask(EventTask):
     def resolve_event_task(cls, evt: ImageEventRow) -> asyncio.Future:
         # pylint: disable=protected-access
         logger = ProgramConfig.get().get_logger(__name__)
-        result_fut: asyncio.Future = None
+        # initialize result to dummy future
+        result_fut: asyncio.Future = asyncio.Future()
+        inner_result_fut = asyncio.Future()
+        inner_result_fut.set_result(True)
+        result_fut.set_result(inner_result_fut)
         existing_task = next((t for t in cls._pending_tasks if t.image_id == evt.image_id), None)
         if existing_task:
             logger.debug("found existing task for image %s", evt.image_id)
             if existing_task.is_waiting():
-                logger.debug("adding event to existing task for image %s", evt.image_id)
-                existing_task.add_event(evt)
+                if evt.table_name == "images" and evt.db_event_type == "DELETE":
+                    existing_task.cancel()
+                    logger.debug("cancelling existing task for deleted image %s", evt.image_id)
+                else:
+                    logger.debug("adding event to existing task for image %s", evt.image_id)
+                    existing_task.add_event(evt)
 
                 result_fut = asyncio.Future()
                 result_fut.set_result(existing_task)
             else:
-                logger.debug("existing task has begun executing. waiting and creating new task for image %s", evt.image_id)
-                async def wait_for_current_task():
-                    await existing_task
-                    new_task = ImageMetadataEventTask(evt.image_id)
-                    new_task.add_event(evt)
-                    return new_task
+                if evt.table_name == "images" and evt.db_event_type == "DELETE":
+                    # just keep the dummy result future in this case
+                    logger.debug("existing task for delete image %s has begun executing. new task will not be created."
+                        , evt.image_id)
+                else:
+                    logger.debug("existing task has begun executing. waiting and creating new task for image %s"
+                        , evt.image_id)
+                    async def wait_for_current_task():
+                        await existing_task
+                        new_task = ImageMetadataEventTask(evt.image_id)
+                        new_task.add_event(evt)
+                        return new_task
 
-                result_fut = asyncio.ensure_future(wait_for_current_task())
+                    result_fut = asyncio.ensure_future(wait_for_current_task())
 
         else:
-            logger.debug("no exising task found for image %s. creating new task.", evt.image_id)
-            new_task = ImageMetadataEventTask(evt.image_id)
-            new_task.add_event(evt)
-            result_fut = asyncio.Future()
-            result_fut.set_result(new_task)
+            if evt.table_name == "images" and evt.db_event_type == "DELETE":
+                logger.debug("no existing task found for deleted image %s. no action required.", evt.image_id)
+                # just keep the dummy result future in this case
+            else:
+                logger.debug("no exising task found for image %s. creating new task.", evt.image_id)
+                new_task = ImageMetadataEventTask(evt.image_id)
+                new_task.add_event(evt)
+                result_fut = asyncio.Future()
+                result_fut.set_result(new_task)
 
         return result_fut
 
