@@ -39,6 +39,17 @@ def convert_pct_bounding_box(img_dimen: Dimension, bounding_box: Bounding) -> Bo
         min(int(round(right)), img_dimen[0]),
         min(int(round(bottom)), img_dimen[1]))
 
+def get_scaled_image(file: IO, max_size: tuple[int,int]) -> IO:
+    """generate a scaled version of the given file"""
+    with Image.open(file) as org_img:
+        scaled_img = org_img.copy()
+        scaled_img.thumbnail(max_size, Image.ANTIALIAS)
+        scaled_img_bytes = BytesIO()
+        scaled_img.save(scaled_img_bytes, format="JPEG")
+        scaled_img_bytes.seek(0)
+
+        return scaled_img_bytes
+
 def get_cropped_image(file: IO, box: Bounding) -> IO:
     """generates a cropped image file from an exisiting image file using the specified
     bounding box--the bounding box is expected as a rekognition (left, top, width, height) box"""

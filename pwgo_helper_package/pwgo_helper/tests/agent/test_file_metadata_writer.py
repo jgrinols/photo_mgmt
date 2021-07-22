@@ -12,11 +12,13 @@ class TestFileMetadataWriter:
     """tests for the FileMetadataWriter class"""
 
     @patch("pwgo_helper.agent.file_metadata_writer.ImageData")
+    @patch("pwgo_helper.agent.utilities.get_scaled_image")
     @patch("pwgo_helper.agent.utilities.get_pwgo_fs")
-    def test_basic(self, mck_get_fs, mck_img_data):
+    def test_basic(self, mck_get_fs, mck_scl_img, mck_img_data):
         """basic functional test"""
         mck_fs = MagicMock(spec=MountFS)
         mck_fs.openbin.return_value = MagicMock(spec=BufferedIOBase)
+        mck_scl_img.return_value = MagicMock(spec=BufferedIOBase)
         mck_get_fs.return_value = mck_fs
         mck_img_data_inst = MagicMock(spec=ImageData, name="foo")
         mck_img_data.return_value.__enter__.return_value = mck_img_data_inst

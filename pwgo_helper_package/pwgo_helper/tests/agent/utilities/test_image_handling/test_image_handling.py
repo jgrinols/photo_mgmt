@@ -70,3 +70,13 @@ class TestImageHandling:
             result_hash = imagehash.average_hash(result_crop_img)
 
         assert expected_hash - result_hash <= 1
+
+    def test_get_scaled_image(self):
+        """tests the basic functionality of the get_scaled_image utility function"""
+        max_size = (250,200)
+        with open(os.path.join(MODULE_PATH, "test_image.JPG"), mode='rb') as test_image:
+            test_scale_result = utilities.get_scaled_image(test_image, max_size)
+
+        with Image.open(test_scale_result) as scaled_test_img:
+            assert scaled_test_img.size[0] and scaled_test_img.size[0] <= max_size[0]
+            assert scaled_test_img.size[1] and scaled_test_img.size[1] <= max_size[1]

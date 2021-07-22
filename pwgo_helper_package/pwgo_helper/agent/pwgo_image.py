@@ -68,14 +68,17 @@ class PiwigoImage:
 
     @contextmanager
     def open_file(self, mode: str='r') -> IOBase:
-        """opens the PiwigoImage file. Usage: with piwigo_img.open_file(mode='w+') as img_file:"""
+        """opens a scaled version of the PiwigoImage file.
+        Usage: with piwigo_img.open_file(mode='w+') as img_file:"""
         pgfs = utilities.get_pwgo_fs()
         from_path = utilities.map_pwgo_path(self._path)
         img_file = pgfs.openbin(from_path, mode=mode)
         try:
-            yield img_file
+            scaled_img_file = utilities.get_scaled_image(img_file, AgentConfig.get().scaled_img_max_size)
+            yield scaled_img_file
 
         finally:
+            scaled_img_file.close()
             img_file.close()
             pgfs.close()
 

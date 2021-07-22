@@ -18,12 +18,10 @@ class Configuration():
         self.face_idx_parent_alb = 128
         self.face_idx_albs = []
         self.min_tag_confidence = 90
-
         self.img_tag_wait_secs = 1
-
         self.msg_db = "messaging"
-
         self.stop_timeout = 10
+        self.scaled_img_max_size = (1024,1024)
 
         # set by initialization
         self.piwigo_galleries_host_path = None
