@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import logging, json
+from typing import Optional
 
 import click
-from slack_logger import SlackHandler
 
 from . import strings
-from .logging import CustomFormatter, TaskFilter
+# pylint: disable=reimported
+from . import logging as pwgo_logging
 
 class Configuration:
     """holds global config values"""
@@ -18,7 +19,7 @@ class Configuration:
         """returns the Configuration singleton"""
         if not Configuration.instance:
             def_cfg = Configuration()
-            def_cfg.get_logger(__name__).warning("Program config is not initialized. Returning default config.")
+            def_cfg.get_logger().warning("Program config is not initialized. Returning default config.")
             return def_cfg
         return Configuration.instance
 
@@ -29,6 +30,12 @@ class Configuration:
         cfg.initialization_args = kwargs
         cfg.db_config = json.loads(kwargs["db_conn_json"])
         for key, val in kwargs.items():
+            if key == "log_level":
+                pwgo_logging.log_level = val
+            if key == "lib_log_level":
+                pwgo_logging.lib_log_level = val
+            if key == "slack_webhook_url" and val:
+                pwgo_logging.attach_alert_handler(val)
             if hasattr(cfg, key):
                 setattr(cfg, key, val)
         # log init parameters in a separate loop so that we're logging with
@@ -55,49 +62,10 @@ class Configuration:
         self.pwgo_db_name = "piwigo"
         self.piwigo_db_scripts = PiwigoScripts()
         self.rekognition_db_scripts = RekognitionScripts()
-        self.slack_webhook_url = None
-        self.verbosity = "NOTSET"
 
-    @property
-    def verbosity(self):
-        return self._verbosity
-
-    @verbosity.setter
-    def verbosity(self, value):
-        self._verbosity = value
-        root_logger = logging.getLogger()
-        root_logger.setLevel(value)
-        prim_handler_list = [h for h in root_logger.handlers if hasattr(h, "role") and getattr(h, "role") == "primary"]
-        if prim_handler_list:
-            prim_handler_list[0].setLevel(value)
-        else:
-            prim_handler = logging.StreamHandler()
-            setattr(prim_handler, "role", "primary")
-            prim_handler.setLevel(value)
-            prim_handler.addFilter(TaskFilter())
-            prim_handler.setFormatter(
-                CustomFormatter("%(asctime)s - %(levelname)s - %(taskname)s: %(message)s", datefmt='%Y-%m-%d %H:%M:%S.%f')
-            )
-            root_logger.addHandler(prim_handler)
-
-
-    def get_logger(self, name: str) -> logging.Logger:
-        """function to generate a logger with given name and the configured verbosity"""
-        logger = logging.getLogger(name)
-        if self.slack_webhook_url:
-            alert_handler_list = [h for h in logger.root.handlers if hasattr(h, "role") and getattr(h, "role") == "alerts"]
-            if not alert_handler_list:
-                alert_handler = SlackHandler(self.slack_webhook_url)
-                setattr(alert_handler, "role", "alerts")
-                alert_handler.setLevel("ERROR")
-                # pylint: disable=line-too-long
-                alert_handler.setFormatter(CustomFormatter(
-                        '%(levelname)s - logger %(name)s generated message from [%(module)s].[%(funcName)s] (%(lineno)s) at %(asctime)s',
-                        datefmt='%Y-%m-%d %H:%M:%S.%f'
-                    ))
-                logger.root.addHandler(alert_handler)
-
-        return logger
+    def get_logger(self, name: Optional[str] = None) -> logging.Logger:
+        """wrapper for standard getLogger"""
+        return logging.getLogger(name)
 
 class PiwigoScripts:
     """container class for piwigo db setup scripts"""

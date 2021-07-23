@@ -187,8 +187,10 @@ class TestMetadataAgent:
             test_str = "test"
             agent_proc = subprocess.Popen([
                 "pwgo-helper",
-                "-v",
+                "--log-level",
                 "DEBUG",
+                "--lib-log-level",
+                "ERROR",
                 "--dry-run",
                 "--db-conn-json",
                 json.dumps(db_cfg),
@@ -335,7 +337,7 @@ class TestMetadataAgent:
                 test_str = "test"
                 agent_proc = subprocess.Popen([
                     "pwgo-helper",
-                    "-v",
+                    "--log-level",
                     "DEBUG",
                     "--dry-run",
                     "--db-conn-json",
@@ -395,7 +397,7 @@ class TestMetadataAgent:
             vfs_root_path.mkdir()
 
             test_str = "test"
-            os.environ["PWGO_HLPR_VERBOSITY"] = "DEBUG"
+            os.environ["PWGO_HLPR_LOG_LEVEL"] = "DEBUG"
             os.environ["PWGO_HLPR_AGENT_WORKERS"] = "17"
             os.environ["PWGO_HLPR_AGENT_INITIALIZE_DB"] = "True"
             os.environ["PWGO_HLPR_DB_CONN_JSON"] = json.dumps(db_cfg)
@@ -419,7 +421,7 @@ class TestMetadataAgent:
             try:
                 captured = capfd.readouterr().err.splitlines()
                 assert not agent_proc.returncode
-                re_str = '^.*('+ProgramStrings.LOG_PRG_OPT('verbosity', os.environ["PWGO_HLPR_VERBOSITY"])+')'
+                re_str = '^.*('+ProgramStrings.LOG_PRG_OPT('log_level', os.environ["PWGO_HLPR_LOG_LEVEL"])+')'
                 prg_verb_opt_re = re.compile(re_str)
                 prg_verb_opt_logs = [ prg_verb_opt_re.match(s) for s in captured ]
                 prg_verb_opt_logs = [ m.group(1) for m in prg_verb_opt_logs if m ]
@@ -525,7 +527,7 @@ class TestMetadataAgent:
             mck_vfs_task = stack.enter_context(patch("pwgo_helper.agent.metadata_agent.ImageVirtualPathEventTask"))
             mck_pcfg_get = stack.enter_context(patch.object(ProgramConfig, "get"))
             mck_pcfg_get.return_value = ProgramConfig()
-            mck_pcfg_get.return_value.verbosity = "DEBUG"
+            mck_pcfg_get.return_value.log_level = "DEBUG"
             mck_pcfg_get.return_value.dry_run = True
             mck_acfg_get = stack.enter_context(patch.object(AgentConfig, "get"))
             mck_acfg_get.return_value = AgentConfig()

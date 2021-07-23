@@ -1,5 +1,5 @@
 """the main pwgo_helper command entry point"""
-import os, uuid
+import os, logging
 
 import click
 from dotenv import load_dotenv
@@ -8,11 +8,15 @@ from .config import Configuration
 from .agent.metadata_agent import agent_entry
 from .icloud_dl.base import main
 from .sync.main import sync_entry
+# pylint: disable=reimported
+from . import logging as pwgo_logging
 
 MODULE_BASE_PATH = os.path.dirname(__file__)
+logging.setLoggerClass(pwgo_logging.CustomLogger)
 
 def _load_environment(_ctx, _opt, val):
-    logger = Configuration.get().get_logger(str(uuid.uuid4())[0:8])
+    # use the root logger since we're not initialized yet
+    logger = Configuration.get().get_logger()
     if val:
         logger.info("attempting to load environment from %s", val)
         if os.path.exists(val):
@@ -34,10 +38,16 @@ def _load_environment(_ctx, _opt, val):
     "--pwgo-db-name",help="name of the piwigo database",type=str,required=False,default="piwigo"
 )
 @click.option(
-    "-v", "--verbosity",
+    "--log-level",
     help="specifies the verbosity of the log output",
     type=click.Choice(["CRITICAL","ERROR","WARNING","INFO","DEBUG","NOTSET"]),
     default="NOTSET"
+)
+@click.option(
+    "--lib-log-level",
+    help="specifies the verbosity of logging from standard library and third party modules",
+    type=click.Choice(["CRITICAL","ERROR","WARNING","INFO","DEBUG","NOTSET"]),
+    default="ERROR"
 )
 @click.option(
     "--dry-run",
