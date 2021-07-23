@@ -13,3 +13,4 @@ pillow
 pyexiv2==2.5.0
 pyicloud_ipd==0.10.1
 slack-logger
+pid

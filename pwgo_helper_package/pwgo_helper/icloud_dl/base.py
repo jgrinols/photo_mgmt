@@ -3,13 +3,14 @@ from __future__ import print_function
 import os, sys, time, datetime, json, subprocess, itertools, asyncio
 
 import click
-from pwgo_helper.db_connection_pool import DbConnectionPool
 import pymysql
 import pymysql.cursors
 from pyicloud_ipd.exceptions import PyiCloudAPIResponseError
+from pid import PidFile
 
 from ..config import Configuration as ProgramConfig
 from .config import Configuration as ICDLConfig
+from pwgo_helper.db_connection_pool import DbConnectionPool
 from .authentication import authenticate
 from . import download
 from .string_helpers import truncate_middle
@@ -129,14 +130,15 @@ from ..asyncio import get_task
     help="name of the database used for tracking downloads"
 )
 def main(**kwargs):
-    ICDLConfig.initialize(**kwargs)
-    loop = asyncio.get_event_loop()
-    loop.set_task_factory(get_task)
-    try:
-        loop.run_until_complete(run())
-    finally:
-        if DbConnectionPool.is_initialized():
-            DbConnectionPool.get().terminate()
+    with PidFile("pwgo-icdownload"):
+        ICDLConfig.initialize(**kwargs)
+        loop = asyncio.get_event_loop()
+        loop.set_task_factory(get_task)
+        try:
+            loop.run_until_complete(run())
+        finally:
+            if DbConnectionPool.is_initialized():
+                DbConnectionPool.get().terminate()
 
 async def run():
     """Download all iCloud photos to a local directory"""

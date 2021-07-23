@@ -5,6 +5,7 @@ from urllib.parse import urljoin
 import click
 import requests
 from bs4 import BeautifulSoup
+from pid import PidFile
 
 from ..config import Configuration as ProgramConfig
 from .config import Configuration as SyncConfig
@@ -178,7 +179,8 @@ def sync():
     required=True, default=1
 )
 def sync_entry(**kwargs):
-    logger = ProgramConfig.get().get_logger(__name__)
-    SyncConfig.initialize(**kwargs)
-    logger.info("Begin physical album sync.")
-    sync()
+    with PidFile("pwgo-sync"):
+        logger = ProgramConfig.get().get_logger(__name__)
+        SyncConfig.initialize(**kwargs)
+        logger.info("Begin physical album sync.")
+        sync()
