@@ -5,6 +5,8 @@ from typing import Tuple
 
 from aiomysql import DictCursor,Connection,create_pool
 
+from .config import Configuration
+
 class DbConnectionPool():
     """Provides a context manager compatible connection to the given database"""
     instance: DbConnectionPool = None
@@ -25,10 +27,10 @@ class DbConnectionPool():
         return DbConnectionPool.instance
 
     @staticmethod
-    async def initialize(host: str, port: int, user: str, pw: str):
+    async def initialize(**kwargs):
         """creates a new DbConnectionPool instance"""
         DbConnectionPool.instance = DbConnectionPool(
-            await create_pool(host=host,port=port,user=user,password=pw,db="mysql")
+            await create_pool(db="mysql", **kwargs)
         )
 
     def __enter__(self):

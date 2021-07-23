@@ -190,14 +190,8 @@ class TestMetadataAgent:
                 "-v",
                 "DEBUG",
                 "--dry-run",
-                "--db-host",
-                db_cfg["host"],
-                "--db-port",
-                str(db_cfg["port"]),
-                "--db-user",
-                db_cfg["user"],
-                "--db-pw",
-                db_cfg["passwd"],
+                "--db-conn-json",
+                json.dumps(db_cfg),
                 "agent",
                 "--piwigo-galleries-host-path",
                 "/workspace",
@@ -344,14 +338,8 @@ class TestMetadataAgent:
                     "-v",
                     "DEBUG",
                     "--dry-run",
-                    "--db-host",
-                    db_cfg["host"],
-                    "--db-port",
-                    str(db_cfg["port"]),
-                    "--db-user",
-                    db_cfg["user"],
-                    "--db-pw",
-                    db_cfg["passwd"],
+                    "--db-conn-json",
+                    json.dumps(db_cfg),
                     "agent",
                     "--piwigo-galleries-host-path",
                     "/workspace",
@@ -410,10 +398,7 @@ class TestMetadataAgent:
             os.environ["PWGO_HLPR_VERBOSITY"] = "DEBUG"
             os.environ["PWGO_HLPR_AGENT_WORKERS"] = "17"
             os.environ["PWGO_HLPR_AGENT_INITIALIZE_DB"] = "True"
-            os.environ["PWGO_HLPR_DB_HOST"] = db_cfg["host"]
-            os.environ["PWGO_HLPR_DB_PORT"] = str(db_cfg["port"])
-            os.environ["PWGO_HLPR_DB_USER"] = db_cfg["user"]
-            os.environ["PWGO_HLPR_DB_PW"] = db_cfg["passwd"]
+            os.environ["PWGO_HLPR_DB_CONN_JSON"] = json.dumps(db_cfg)
             os.environ["PWGO_HLPR_AGENT_REK_ACCESS_KEY"] = test_str
             os.environ["PWGO_HLPR_AGENT_REK_SECRET_ACCESS_KEY"] = test_str
             os.environ["PWGO_HLPR_AGENT_REK_COLLECTION_ARN"] = test_str

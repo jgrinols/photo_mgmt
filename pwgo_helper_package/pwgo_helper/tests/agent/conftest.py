@@ -45,9 +45,7 @@ def db_cfg():
         "host": "mariadb",
         "port": 3306,
         "user": "root",
-        "passwd": "vscode",
-        "temp_db": True,
-        "name": "piwigo"
+        "password": "vscode"
     }
 
 # making the test_db function scoped so we don't have to worry about db cleanup in the tests
@@ -75,34 +73,32 @@ async def test_db(request, db_cfg):
     else:
         db_mod_scripts = []
 
-    await DbConnectionPool.initialize(db_cfg["host"],db_cfg["port"],db_cfg["user"],db_cfg["passwd"])
+    await DbConnectionPool.initialize(**db_cfg)
     conn_pool = DbConnectionPool.get()
-    if db_cfg["temp_db"]:
-        async with conn_pool.acquire_connection() as conn:
-            async with conn.cursor() as cur:
-                with open(os.path.join(DB_SCRIPTS_PATH, "db_create.sql")) as sql:
-                    await cur.execute(sql.read())
-                await cur.execute('USE `piwigo`;')
-                with open(os.path.join(DB_SCRIPTS_PATH, "build_db.sql"), 'r') as script:
-                    stmts = parse_sql(script.read())
+    async with conn_pool.acquire_connection() as conn:
+        async with conn.cursor() as cur:
+            with open(os.path.join(DB_SCRIPTS_PATH, "db_create.sql")) as sql:
+                await cur.execute(sql.read())
+            await cur.execute('USE `piwigo`;')
+            with open(os.path.join(DB_SCRIPTS_PATH, "build_db.sql"), 'r') as script:
+                stmts = parse_sql(script.read())
+            for stmt in stmts:
+                await cur.execute(stmt)
+
+            for sql in db_mod_scripts:
+                stmts = parse_sql(sql)
                 for stmt in stmts:
                     await cur.execute(stmt)
-
-                for sql in db_mod_scripts:
-                    stmts = parse_sql(sql)
-                    for stmt in stmts:
-                        await cur.execute(stmt)
-            await conn.commit()
+        await conn.commit()
 
     yield conn_pool
 
-    if db_cfg["temp_db"]:
-        async with conn_pool.acquire_connection() as conn:
-            async with conn.cursor() as cur:
-                with open(os.path.join(DB_SCRIPTS_PATH, "db_drop.sql")) as sql_file:
-                    sql = sql_file.read()
-                    await conn_pool.clear()
-                    await cur.execute(sql)
-                    await conn.commit()
+    async with conn_pool.acquire_connection() as conn:
+        async with conn.cursor() as cur:
+            with open(os.path.join(DB_SCRIPTS_PATH, "db_drop.sql")) as sql_file:
+                sql = sql_file.read()
+                await conn_pool.clear()
+                await cur.execute(sql)
+                await conn.commit()
 
     conn_pool.terminate()

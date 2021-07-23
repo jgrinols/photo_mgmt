@@ -1,7 +1,7 @@
 """container module for Configuration"""
 from __future__ import annotations
 
-import logging
+import logging, json
 
 import click
 from slack_logger import SlackHandler
@@ -27,12 +27,7 @@ class Configuration:
         """initializes the Configuration singleton"""
         cfg = Configuration()
         cfg.initialization_args = kwargs
-        cfg.db_config = {
-            "host": kwargs["db_host"],
-            "port": kwargs["db_port"],
-            "user": kwargs["db_user"],
-            "passwd": kwargs["db_pw"]
-        }
+        cfg.db_config = json.loads(kwargs["db_conn_json"])
         for key, val in kwargs.items():
             if hasattr(cfg, key):
                 setattr(cfg, key, val)

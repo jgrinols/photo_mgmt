@@ -102,12 +102,7 @@ class MetadataAgent():
         self._logger.info("Monitoring %s for metadata changes", prg_cfg.pwgo_db_name)
 
         blog_args = {
-            "connection_settings": {
-                "host": prg_cfg.db_config["host"],
-                "port": prg_cfg.db_config["port"],
-                "user": prg_cfg.db_config["user"],
-                "passwd": prg_cfg.db_config["passwd"]
-            },
+            "connection_settings": prg_cfg.db_config,
             "server_id": random.randint(100, 999999999),
             "only_schemas": [prg_cfg.pwgo_db_name, agnt_cfg.msg_db],
             "only_tables": agnt_cfg.event_tables.keys(),
@@ -286,12 +281,7 @@ def agent_entry(**kwargs):
         prg_cfg = ProgramConfiguration.get()
         asyncio.current_task().set_name("run-agent")
         logger.debug("initializing database connection pool...")
-        await DbPool.initialize(
-            prg_cfg.db_config["host"],
-            prg_cfg.db_config["port"],
-            prg_cfg.db_config["user"],
-            prg_cfg.db_config["passwd"]
-        )
+        await DbPool.initialize(**prg_cfg.db_config)
         ctx = click.get_current_context()
         for key,val in kwargs.items():
             show_val = val

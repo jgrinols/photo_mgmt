@@ -27,16 +27,8 @@ def _load_environment(_ctx, _opt, val):
     callback=_load_environment, is_eager=True
 )
 @click.option(
-    "--db-host",help="hostname for piwigo db connection",type=str,required=True
-)
-@click.option(
-    "--db-port",help="port for piwigo db connection",type=int,required=False,default=3306
-)
-@click.option(
-    "--db-user",help="username for piwigo db connection",type=str,required=True
-)
-@click.option(
-    "--db-pw",help="password for piwigo db connection",type=str,required=True,hide_input=True
+    "--db-conn-json", help="json string representing the database server connection parameters",
+    type=str, required=True, hide_input=True
 )
 @click.option(
     "--pwgo-db-name",help="name of the piwigo database",type=str,required=False,default="piwigo"

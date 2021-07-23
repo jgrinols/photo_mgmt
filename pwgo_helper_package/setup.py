@@ -13,7 +13,7 @@ with open(os.path.join(mod_path, "dev_requirements.txt")) as f:
 
 setup(
     name='pwgo_helper',
-    version='0.10.2',
+    version='0.11.0',
     packages=find_packages(),
     install_requires=required,
     extras_require={
