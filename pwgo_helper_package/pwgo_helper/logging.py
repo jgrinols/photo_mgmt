@@ -54,9 +54,9 @@ def lib_log_level(value):
     _lib_log_level = value
     # pylint: disable=no-member
     log_dict = logging.root.manager.loggerDict
-    pwgo_lgrs = [logging.getLogger(nm) for nm in log_dict if not nm.startsWith("pwgo_helper")]
-    for logger in pwgo_lgrs:
-        logger.setLevel(_log_level)
+    lib_lgrs = [logging.getLogger(nm) for nm in log_dict if not nm.startsWith("pwgo_helper")]
+    for logger in lib_lgrs:
+        logger.setLevel(_lib_log_level)
 
 class CustomLogger(logging.Logger):
     """implements custom logger instantiation logic"""
