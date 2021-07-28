@@ -7,6 +7,33 @@ from slack_logger import SlackHandler
 _log_level = "NOTSET"
 _lib_log_level = "ERROR"
 
+def __getattr__(name):
+    if name == "log_level":
+        return _log_level
+    if name == "lib_log_level":
+        return _lib_log_level
+
+    raise AttributeError(name)
+
+def __setatttr__(name, value):
+    if name == "log_level":
+        _log_level = value
+        # pylint: disable=no-member
+        log_dict = logging.root.manager.loggerDict
+        pwgo_lgrs = [logging.getLogger(nm) for nm in log_dict if nm.startsWith("pwgo_helper")]
+        for logger in pwgo_lgrs:
+            logger.setLevel(_log_level)
+
+    if name == "lib_log_level":
+        _lib_log_level = value
+        # pylint: disable=no-member
+        log_dict = logging.root.manager.loggerDict
+        lib_lgrs = [logging.getLogger(nm) for nm in log_dict if not nm.startsWith("pwgo_helper")]
+        for logger in lib_lgrs:
+            logger.setLevel(_lib_log_level)
+
+    raise AttributeError(name)
+
 def _initialize():
     root_logger = logging.getLogger()
     root_logger.setLevel("NOTSET")
@@ -30,41 +57,18 @@ def attach_alert_handler(url):
         ))
     root_logger.addHandler(alert_hndlr)
 
-@property
-def log_level():
-    """application code log level"""
-    return _log_level
-
-@log_level.setter
-def log_level(value):
-    _log_level = value
-    # pylint: disable=no-member
-    log_dict = logging.root.manager.loggerDict
-    pwgo_lgrs = [logging.getLogger(nm) for nm in log_dict if nm.startsWith("pwgo_helper")]
-    for logger in pwgo_lgrs:
-        logger.setLevel(_log_level)
-
-@property
-def lib_log_level():
-    """standard and third party library log level"""
-    return _lib_log_level
-
-@lib_log_level.setter
-def lib_log_level(value):
-    _lib_log_level = value
-    # pylint: disable=no-member
-    log_dict = logging.root.manager.loggerDict
-    lib_lgrs = [logging.getLogger(nm) for nm in log_dict if not nm.startsWith("pwgo_helper")]
-    for logger in lib_lgrs:
-        logger.setLevel(_lib_log_level)
-
 class CustomLogger(logging.Logger):
     """implements custom logger instantiation logic"""
+    _logger = logging.getLogger(__name__)
+
     def __init__(self, name: str) -> None:
         if name.startswith("pwgo_helper"):
-            level = log_level
+            level = __getattr__("log_level")
+            pass
         else:
-            level = lib_log_level
+            level = __getattr__("lib_log_level")
+            pass
+        CustomLogger._logger.debug("initializing logger %s with level %s", name, level)
         super().__init__(name, level=level)
 
 class CustomFormatter(logging.Formatter):
