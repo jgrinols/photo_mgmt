@@ -18,7 +18,7 @@ jobs:
           token: ${{ secrets.REPO_ACCESS_TOKEN }}
 
       - name: log working dir
-        run: printenv
+        run: ls -la
       
       - name: install mysql client
         run: sudo apt-get update && sudo apt-get -y install default-mysql-client
