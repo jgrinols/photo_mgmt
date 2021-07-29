@@ -16,9 +16,6 @@ jobs:
         with:
           submodules: true
           token: ${{ secrets.REPO_ACCESS_TOKEN }}
-
-      - name: log working dir
-        run: ls -la
       
       - name: install mysql client
         run: sudo apt-get update && sudo apt-get -y install default-mysql-client
@@ -40,9 +37,6 @@ jobs:
         run: docker-compose down
 
   deploy:
-    defaults:
-      run:
-        working-directory: pwgo_helper_package
     
     name: Deploy to container registry
     runs-on: ubuntu-latest
@@ -65,7 +59,7 @@ jobs:
           password: ${{ secrets.REPO_ACCESS_TOKEN }}
 
       - name: log working dir
-        run: echo "::debug working dir->$CWD"
+        run: ls -la
 
       - name: extract version
         run: echo "::set-output name=PWGO_HLPR_VER::$(cat setup.py | grep version= | sed 's/.*version=[[:punct:]]\([[:digit:]]\+\.[[:digit:]]\+\.[[:digit:]]\+\)[[:punct:]].*/\1/')"
