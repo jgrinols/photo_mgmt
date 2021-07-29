@@ -4,24 +4,28 @@ import logging, asyncio, datetime as dt
 from slack_logger import SlackHandler
 
 # pylint: disable=invalid-name
-_log_level = "NOTSET"
+_user_log_level = "NOTSET"
 _lib_log_level = "ERROR"
 
 def set_log_level(level):
     """sets the logging level for loggers created from user code"""
+    # pylint: disable=global-statement
+    global _user_log_level
     _logger = logging.getLogger(__name__)
     _logger.debug("setting user log level to %s", level)
-    _log_level = level
+    _user_log_level = level
     # pylint: disable=no-member
     log_dict = logging.root.manager.loggerDict
     for logger_nm in [nm for nm in log_dict if nm.startswith("pwgo_helper")]:
-        _logger.debug("setting log level on logger %s to %s", logger_nm, _log_level)
+        _logger.debug("setting log level on logger %s to %s", logger_nm, _user_log_level)
         logger = logging.getLogger(logger_nm)
-        logger.setLevel(_log_level)
+        logger.setLevel(_user_log_level)
 
 def set_lib_log_level(level):
     """sets the logging level for loggers created from
     third party or std lib code"""
+    # pylint: disable=global-statement
+    global _lib_log_level
     _logger = logging.getLogger(__name__)
     _logger.debug("setting lib log level to %s", level)
     _lib_log_level = level
@@ -61,7 +65,7 @@ class CustomLogger(logging.Logger):
 
     def __init__(self, name: str) -> None:
         if name.startswith("pwgo_helper"):
-            level = _log_level
+            level = _user_log_level
         else:
             level = _lib_log_level
         CustomLogger._logger.debug("initializing logger %s with level %s", name, level)
