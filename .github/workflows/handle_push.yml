@@ -58,7 +58,7 @@ jobs:
           password: ${{ secrets.REPO_ACCESS_TOKEN }}
 
       - name: extract version
-        run: $ echo "pwgo_helper_version=$(cat /workspace/pwgo_helper_package/setup.py | grep version= | sed 's/.*version=[[:punct:]]\([[:digit:]]\+\.[[:digit:]]\+\.[[:digit:]]\+\)[[:punct:]].*/\1/')" >> $GITHUB_ENV
+        run: $ echo "pwgo_helper_version=$(cat pwgo_helper_package/setup.py | grep version= | sed 's/.*version=[[:punct:]]\([[:digit:]]\+\.[[:digit:]]\+\.[[:digit:]]\+\)[[:punct:]].*/\1/')" >> $GITHUB_ENV
 
       - name: build and publish image
         uses: docker/build-push-action@v2
