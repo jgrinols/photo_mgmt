@@ -31,9 +31,9 @@ class Configuration:
         cfg.db_config = json.loads(kwargs["db_conn_json"])
         for key, val in kwargs.items():
             if key == "log_level":
-                pwgo_logging.log_level = val
+                pwgo_logging.set_log_level(val)
             if key == "lib_log_level":
-                pwgo_logging.lib_log_level = val
+                pwgo_logging.set_lib_log_level(val)
             if key == "slack_webhook_url" and val:
                 pwgo_logging.attach_alert_handler(val)
             if hasattr(cfg, key):
