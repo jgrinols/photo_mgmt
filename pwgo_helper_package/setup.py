@@ -21,7 +21,6 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "pwgo-sync = pwgo_helper.pwgo_sync.sync:entry",
             "pwgo-helper = pwgo_helper.pwgo_helper:pwgo_helper_entry"
         ]
     }
