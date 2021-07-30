@@ -70,4 +70,5 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.sha }}
             ghcr.io/${{ github.repository }}:latest
-          labels: ${{ steps.extract-ver.outputs.PWGO_HLPR_VER }}
+          labels: |
+            pwgo_helper_version=${{ steps.extract-ver.outputs.PWGO_HLPR_VER }}
