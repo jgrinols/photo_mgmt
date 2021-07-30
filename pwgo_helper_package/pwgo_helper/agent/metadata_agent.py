@@ -1,5 +1,5 @@
 """Container module for the metadata agent service"""
-import signal, asyncio, random
+import signal, asyncio, random, warnings
 from asyncio.tasks import Task
 from asyncio.futures import Future
 
@@ -308,10 +308,12 @@ def agent_entry(**kwargs):
             ]
             async with DbPool.get().acquire_connection() as conn:
                 async with conn.cursor() as cur:
-                    for sql in exec_scripts:
-                        stmts = parse_sql(sql)
-                        for stmt in stmts:
-                            await cur.execute(stmt)
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", ".* already exists")
+                        for sql in exec_scripts:
+                            stmts = parse_sql(sql)
+                            for stmt in stmts:
+                                await cur.execute(stmt)
                 await conn.commit()
         logger.debug("starting and awaiting metadata agent")
         await MetadataAgent(logger)
