@@ -59,6 +59,7 @@ jobs:
           password: ${{ secrets.REPO_ACCESS_TOKEN }}
 
       - name: extract version
+        working-directory: ./pwgo_helper_package
         run: echo "::set-output name=PWGO_HLPR_VER::$(cat setup.py | grep version= | sed 's/.*version=[[:punct:]]\([[:digit:]]\+\.[[:digit:]]\+\.[[:digit:]]\+\)[[:punct:]].*/\1/')"
         id: extract-ver
 
