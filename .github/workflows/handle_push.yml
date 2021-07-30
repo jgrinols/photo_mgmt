@@ -13,9 +13,6 @@ jobs:
     steps:
       - name: checkout repo
         uses: actions/checkout@v2
-        with:
-          submodules: true
-          token: ${{ secrets.REPO_ACCESS_TOKEN }}
       
       - name: install mysql client
         run: sudo apt-get update && sudo apt-get -y install default-mysql-client
@@ -48,6 +45,9 @@ jobs:
       contents: read
 
     steps:
+      - name: checkout repo
+        uses: actions/checkout@v2
+      
       - name: Set up Docker Builder
         uses: docker/setup-buildx-action@v1
 
@@ -59,7 +59,7 @@ jobs:
           password: ${{ secrets.REPO_ACCESS_TOKEN }}
 
       - name: extract version
-        working-directory: photo_mgmt/pwgo_helper_package
+        working-directory: pwgo_helper_package
         run: echo "::set-output name=PWGO_HLPR_VER::$(cat setup.py | grep version= | sed 's/.*version=[[:punct:]]\([[:digit:]]\+\.[[:digit:]]\+\.[[:digit:]]\+\)[[:punct:]].*/\1/')"
         id: extract-ver
 
