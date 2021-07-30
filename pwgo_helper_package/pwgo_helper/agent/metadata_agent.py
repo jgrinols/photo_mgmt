@@ -309,7 +309,7 @@ def agent_entry(**kwargs):
             async with DbPool.get().acquire_connection() as conn:
                 async with conn.cursor() as cur:
                     with warnings.catch_warnings():
-                        warnings.simplefilter("ignore", ".* already exists")
+                        warnings.filterwarnings("ignore", category=Warning, message=".* exists")
                         for sql in exec_scripts:
                             stmts = parse_sql(sql)
                             for stmt in stmts:
