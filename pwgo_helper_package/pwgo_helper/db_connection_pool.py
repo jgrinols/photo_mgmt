@@ -35,7 +35,7 @@ class DbConnectionPool():
 
         # pylint: disable=protected-access
         DbConnectionPool.instance.__pool.close()
-        DbConnectionPool.instance.__pool.wait_closed()
+        await DbConnectionPool.instance.__pool.wait_closed()
 
     @asynccontextmanager
     async def acquire_connection(self, **kwargs) -> Connection:
