@@ -1,5 +1,5 @@
 """entry point module for the piwigo sync command"""
-import time, json
+import time, json, asyncio
 from urllib.parse import urljoin
 
 import click
@@ -9,6 +9,8 @@ from pid import PidFile
 
 from ..config import Configuration as ProgramConfig
 from .config import Configuration as SyncConfig
+from ..asyncio import get_task
+from ..db_connection_pool import DbConnectionPool
 
 def _login() -> requests.Session:
     prg_cfg = ProgramConfig.get()
@@ -88,7 +90,7 @@ def _compute_missing_hashes(session: requests.Session, token: str) -> int:
     prg_cfg = ProgramConfig.get()
     logger = prg_cfg.get_logger(__name__)
     sync_cfg = SyncConfig.get()
-    logger.info("adding any missing photo md5 hashes...")
+    logger.info("adding missing photo md5 hashes...")
     hashes_added = 0
 
     compute_md5_params = { "format": "json", "method": "pwg.images.setMd5sum" }
@@ -114,9 +116,10 @@ def _compute_missing_hashes(session: requests.Session, token: str) -> int:
 
     return hashes_added
 
-def sync():
+async def sync():
     """execute the sync operation"""
-    logger = ProgramConfig.get().get_logger(__name__)
+    prg_cfg = ProgramConfig.get()
+    logger = prg_cfg.get_logger(__name__)
     session = _login()
     response, duration = _sync_single(session)
     logger.info("Status: %s, Duration: %s", response.status_code, duration)
@@ -130,10 +133,22 @@ def sync():
         for item in parsed_response.select("li[class^=update_summary]"):
             logger.info(item.text)
 
-        if not ProgramConfig.get().dry_run and SyncConfig.get().add_missing_md5:
-            token = _get_pwg_token(session)
-            hashes_added = _compute_missing_hashes(session, token)
-            logger.info("added %s missing hashes", hashes_added)
+        if not prg_cfg.dry_run and SyncConfig.get().add_missing_md5:
+            async with DbConnectionPool.initialize(**prg_cfg.db_config) as db_pool:
+                async with db_pool.acquire_dict_cursor(db=prg_cfg.pwgo_db_name) as (cur,_):
+                    sql = """
+                        SELECT COUNT(*) AS missing_cnt
+                        FROM images
+                        WHERE md5sum IS NULL
+                    """
+                    logger.info("checking if there are any images with missing md5 hashes")
+                    await cur.execute(sql)
+                    result = await cur.fetchone()
+
+            if result["missing_cnt"]:
+                token = _get_pwg_token(session)
+                hashes_added = _compute_missing_hashes(session, token)
+                logger.info("added %s missing hashes", hashes_added)
 
 @click.command("sync")
 @click.option(
@@ -183,4 +198,6 @@ def sync_entry(**kwargs):
         logger = ProgramConfig.get().get_logger(__name__)
         SyncConfig.initialize(**kwargs)
         logger.info("Begin physical album sync.")
-        sync()
+        loop = asyncio.get_event_loop()
+        loop.set_task_factory(get_task)
+        loop.run_until_complete(sync())

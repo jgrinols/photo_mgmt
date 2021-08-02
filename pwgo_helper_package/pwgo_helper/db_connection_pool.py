@@ -5,8 +5,6 @@ from typing import Tuple
 
 from aiomysql import DictCursor,Connection,create_pool
 
-from .config import Configuration
-
 class DbConnectionPool():
     """Provides a context manager compatible connection to the given database"""
     instance: DbConnectionPool = None
@@ -27,18 +25,17 @@ class DbConnectionPool():
         return DbConnectionPool.instance
 
     @staticmethod
+    @asynccontextmanager
     async def initialize(**kwargs):
         """creates a new DbConnectionPool instance"""
         DbConnectionPool.instance = DbConnectionPool(
             await create_pool(db="mysql", **kwargs)
         )
+        yield DbConnectionPool.instance
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, expt_type, expt_value, traceback):
-        self.__pool.close()
-        self.__pool.wait_closed()
+        # pylint: disable=protected-access
+        DbConnectionPool.instance.__pool.close()
+        DbConnectionPool.instance.__pool.wait_closed()
 
     @asynccontextmanager
     async def acquire_connection(self, **kwargs) -> Connection:

@@ -281,45 +281,44 @@ def agent_entry(**kwargs):
         prg_cfg = ProgramConfiguration.get()
         asyncio.current_task().set_name("run-agent")
         logger.debug("initializing database connection pool...")
-        await DbPool.initialize(**prg_cfg.db_config)
-        ctx = click.get_current_context()
-        for key,val in kwargs.items():
-            show_val = val
-            opt = [opt for opt in ctx.command.params if opt.name == key]
-            if opt and opt[0].hide_input:
-                show_val = "OMITTED"
-            logger.debug(strings.LOG_AGNT_OPT(key,show_val))
-        await AgentConfiguration.initialize(**kwargs)
-        if kwargs["initialize_db"]:
-            logger.debug(strings.LOG_INITIALIZE_DB)
-            exec_scripts = [
-                prg_cfg.piwigo_db_scripts.create_category_paths,
-                prg_cfg.piwigo_db_scripts.create_implicit_tags,
-                prg_cfg.piwigo_db_scripts.create_image_metadata,
-                prg_cfg.piwigo_db_scripts.create_image_virtual_paths,
-                prg_cfg.piwigo_db_scripts.create_image_category_triggers,
-                prg_cfg.piwigo_db_scripts.create_tags_triggers,
-                prg_cfg.piwigo_db_scripts.create_image_tag_triggers,
-                prg_cfg.piwigo_db_scripts.create_pwgo_message,
-                prg_cfg.rekognition_db_scripts.create_rekognition_db,
-                prg_cfg.rekognition_db_scripts.create_image_labels,
-                prg_cfg.rekognition_db_scripts.create_index_faces,
-                prg_cfg.rekognition_db_scripts.create_processed_faces
-            ]
-            async with DbPool.get().acquire_connection() as conn:
-                async with conn.cursor() as cur:
-                    with warnings.catch_warnings():
-                        warnings.filterwarnings("ignore", category=Warning, message=".* exists")
-                        for sql in exec_scripts:
-                            stmts = parse_sql(sql)
-                            for stmt in stmts:
-                                await cur.execute(stmt)
-                await conn.commit()
-        logger.debug("starting and awaiting metadata agent")
-        await MetadataAgent(logger)
-        logger.debug("metadata agent returned")
-        logger.debug("releasing database connection pool resources...")
-        DbPool.get().terminate()
+        async with DbPool.initialize(**prg_cfg.db_config) as db_pool:
+            ctx = click.get_current_context()
+            for key,val in kwargs.items():
+                show_val = val
+                opt = [opt for opt in ctx.command.params if opt.name == key]
+                if opt and opt[0].hide_input:
+                    show_val = "OMITTED"
+                logger.debug(strings.LOG_AGNT_OPT(key,show_val))
+            await AgentConfiguration.initialize(**kwargs)
+            if kwargs["initialize_db"]:
+                logger.debug(strings.LOG_INITIALIZE_DB)
+                exec_scripts = [
+                    prg_cfg.piwigo_db_scripts.create_category_paths,
+                    prg_cfg.piwigo_db_scripts.create_implicit_tags,
+                    prg_cfg.piwigo_db_scripts.create_image_metadata,
+                    prg_cfg.piwigo_db_scripts.create_image_virtual_paths,
+                    prg_cfg.piwigo_db_scripts.create_image_category_triggers,
+                    prg_cfg.piwigo_db_scripts.create_tags_triggers,
+                    prg_cfg.piwigo_db_scripts.create_image_tag_triggers,
+                    prg_cfg.piwigo_db_scripts.create_pwgo_message,
+                    prg_cfg.rekognition_db_scripts.create_rekognition_db,
+                    prg_cfg.rekognition_db_scripts.create_image_labels,
+                    prg_cfg.rekognition_db_scripts.create_index_faces,
+                    prg_cfg.rekognition_db_scripts.create_processed_faces
+                ]
+                async with db_pool.acquire_connection() as conn:
+                    async with conn.cursor() as cur:
+                        with warnings.catch_warnings():
+                            warnings.filterwarnings("ignore", category=Warning, message=".* exists")
+                            for sql in exec_scripts:
+                                stmts = parse_sql(sql)
+                                for stmt in stmts:
+                                    await cur.execute(stmt)
+                    await conn.commit()
+            logger.debug("starting and awaiting metadata agent")
+            await MetadataAgent(logger)
+            logger.debug("metadata agent returned")
+            logger.debug("releasing database connection pool resources...")
 
     loop = asyncio.get_event_loop()
     loop.set_debug(kwargs["debug"])
