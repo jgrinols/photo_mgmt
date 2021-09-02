@@ -105,16 +105,12 @@ from ..asyncio import get_task
     default="{:%Y/%m}",
 )
 @click.option(
-    "--auth-msg-db", default="Syslog",
+    "--auth-msg-db", required=True,
     help="name of database that contains auth message table"
 )
 @click.option(
-    "--auth-msg-tbl", default="SystemEvents",
+    "--auth-msg-tbl", required=True,
     help="name of table that receives auth message"
-)
-@click.option(
-    "--auth-msg-tag", default="msg_queue",
-    help="tag that is applied to auth messages"
 )
 @click.option(
     "--mfa-timeout", type=int, default=30,

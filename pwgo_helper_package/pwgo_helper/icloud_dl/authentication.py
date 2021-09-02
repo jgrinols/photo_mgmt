@@ -29,22 +29,21 @@ def wait_for_mfa_code():
     while True:
         for event in stream:
             for row in event.rows:
-                if row["values"]["SysLogTag"].startswith(icdl_cfg.auth_msg_tag):
-                    logger.info("received tagged message")
-                    unescaped_msg = row["values"]["Message"].encode('latin1').decode('unicode-escape')
-                    msg_obj = json.loads(unescaped_msg)
-                    logger.info("checking for verification code")
-                    match = re.search(r'.*:\s*(\d{6})[^\d]'
-                        , msg_obj["Message"]["Body"]
-                        , re.IGNORECASE | re.MULTILINE)
-                    if match:
-                        code = match.group(1)
-                        logger.debug("found verification code")
-                        stream.close()
+                logger.info("message")
+                unescaped_msg = row["values"]["message"].encode('latin1').decode('unicode-escape')
+                msg_obj = json.loads(unescaped_msg)
+                logger.info("checking for verification code")
+                match = re.search(r'.*:\s*(\d{6})[^\d]'
+                    , msg_obj["Message"]["Body"]
+                    , re.IGNORECASE | re.MULTILINE)
+                if match:
+                    code = match.group(1)
+                    logger.debug("found verification code")
+                    stream.close()
 
-                        return code
-                    else:
-                        logger.warning("unable to find verification code in tagged message. waiting...")
+                    return code
+                else:
+                    logger.warning("unable to find verification code in message. waiting...")
         time.sleep(.1)
         if time.time() - start_time > icdl_cfg.mfa_timeout:
             raise TimeoutError("did not receive mfa token during specified timeout period.")
