@@ -30,8 +30,8 @@ def wait_for_mfa_code():
         for event in stream:
             for row in event.rows:
                 logger.info("message")
-                unescaped_msg = row["values"]["message"].encode('latin1').decode('unicode-escape')
-                msg_obj = json.loads(unescaped_msg)
+                escaped_msg = row["values"]["message"].encode('unicode-escape')
+                msg_obj = json.loads(escaped_msg)
                 logger.info("checking for verification code")
                 match = re.search(r'.*:\s*(\d{6})[^\d]'
                     , msg_obj["Message"]["Body"]
