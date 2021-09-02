@@ -176,7 +176,7 @@ async def run():
                 {limit_str};
             """
             await cur.execute(get_ids_sql, icdl_cfg.username)
-            prev_ids = await cur.fetchall()
+            prev_ids = await list(cur)
 
         logger.debug(
             "Looking up all photos%s from album %s...",
