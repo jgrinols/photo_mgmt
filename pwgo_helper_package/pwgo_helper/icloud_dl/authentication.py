@@ -16,12 +16,7 @@ def wait_for_mfa_code():
     logger = prg_cfg.get_logger(__name__)
     code = None
     stream = BinLogStreamReader(
-        connection_settings = {
-            'host': prg_cfg.db_config['host'],
-            'port': prg_cfg.db_config['port'],
-            'user': prg_cfg.db_config['user'],
-            'passwd': prg_cfg.db_config['passwd']
-        },
+        connection_settings = prg_cfg.db_config,
         server_id = random.randint(100, 999999999),
         only_schemas = icdl_cfg.auth_msg_db,
         only_tables = icdl_cfg.auth_msg_tbl,
