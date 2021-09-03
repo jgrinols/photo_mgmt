@@ -1,7 +1,6 @@
 """container module for TestEventDispatcher"""
 # pylint: disable=protected-access
 import asyncio
-from asyncio.futures import Future
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,7 +9,7 @@ from ...agent.event_dispatcher import EventDispatcher
 from ...agent.config import Configuration
 from ...agent.autotagger import AutoTagger
 from ...agent.aggregate_results_error import AggregateResultsError
-from ...agent import strings
+from ...agent.image_metadata_event_task import ImageMetadataEventTask
 
 class TestEventDispatcher:
     """EventDispatcher tests"""
@@ -113,55 +112,49 @@ class TestEventDispatcher:
         assert dispatcher.process_event.await_count == worker_cnt
 
     @pytest.mark.asyncio
-    @patch('pwgo_helper.agent.event_dispatcher.EventTask')
-    @patch('pwgo_helper.agent.event_dispatcher.AutoTagger')
     @patch('pwgo_helper.agent.event_dispatcher.AgentConfig')
-    async def test_delay_dispatch(self, mck_cfg, mck_at, mck_evt_task):
+    async def test_delay_disp(self, m_cfg):
         """tests the proper functioning of the mechanism which forces
-        new events to wait for dispatching under certain scenarios"""
+         new events to wait for dispatching under certain scenarios"""
         sync_complete = False
-        error = False
-        img_mdata_task = Future()
-        async def mck_sync_face_index():
-            await asyncio.sleep(5)
+        async def sync_face_index():
             nonlocal sync_complete
+            await asyncio.sleep(5)
             sync_complete = True
-        def mck_schedule_start():
-            asyncio.ensure_future(mck_evt_handler())
-            return True
-        async def mck_evt_handler():
-            nonlocal error, sync_complete, img_mdata_task
-            if not sync_complete:
-                error = True
-            await asyncio.sleep(1)
-            img_mdata_task.set_result(True)
 
-        img_id = 541
-        mck_at.sync_face_index = mck_sync_face_index
-        mck_cfg.get.return_value = MagicMock(spec=Configuration)
-        mck_cfg.get.return_value.face_idx_albs = [999]
-        mck_evt_task.get_event_task = AsyncMock()
-        img_mdata_task.schedule_start = mck_schedule_start
-        mck_evt_task.get_event_task.return_value = img_mdata_task
+        real_schedule_start = ImageMetadataEventTask.schedule_start
+        def schedule_start(img_task_self):
+            nonlocal sync_complete
+            assert sync_complete
+            return real_schedule_start(img_task_self)
+
+        async def handle_events(_):
+            await asyncio.sleep(.1)
+
+        m_cfg.get.return_value = MagicMock(spec=Configuration)
+        m_cfg.get.return_value.face_idx_albs = [999]
+        m_cfg.get.return_value.img_tag_wait_secs = 1
+
+        img1_id = 524
+        img2_id = 612
         mck_face_idx_evt = { "values": { "message_type": "IMG_METADATA", "message": f'''{{
-            "image_id": {img_id}, "table_name": "image_category", "table_primary_key": [{img_id},999], "operation": "INSERT"
+            "image_id": {img1_id}, "table_name": "image_category", "table_primary_key": [{img1_id},999], "operation": "INSERT"
         }}''' }}
         mck_next_evt = { "values": { "message_type": "IMG_METADATA", "message": f'''{{
-            "image_id": {img_id}, "table_name": "image_category", "table_primary_key": [{img_id},1], "operation": "INSERT"
+            "image_id": {img2_id}, "table_name": "image_category", "table_primary_key": [{img2_id},1], "operation": "INSERT"
         }}''' }}
 
-        try:
-            dispatcher = await EventDispatcher.create(10)
-            await dispatcher.queue_event(mck_face_idx_evt)
-            await asyncio.sleep(1)
-            await dispatcher.queue_event(mck_next_evt)
-        finally:
-            await dispatcher.stop()
-            _ = dispatcher.get_results()
-
-        assert sync_complete
-        assert img_mdata_task.result()
-        assert not error
+        with patch.object(AutoTagger, "sync_face_index", sync_face_index):
+            with patch.object(ImageMetadataEventTask, "schedule_start", schedule_start):
+                with patch.object(ImageMetadataEventTask, "_handle_events", handle_events):
+                    try:
+                        dispatcher = await EventDispatcher.create(10)
+                        await dispatcher.queue_event(mck_face_idx_evt)
+                        await asyncio.sleep(1)
+                        await dispatcher.queue_event(mck_next_evt)
+                    finally:
+                        await dispatcher.stop()
+                        _ = dispatcher.get_results()
 
     @pytest.mark.asyncio
     @patch('pwgo_helper.agent.event_dispatcher.AutoTagger')

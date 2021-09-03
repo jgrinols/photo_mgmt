@@ -174,7 +174,10 @@ class EventDispatcher():
                 self._delay_dispatch_task.set_result(True)
 
         evt_handler = await EventTask.get_event_task(evt)
-        if evt_handler:
+        # need to check if evt_handler is an EventTask because
+        # there are instances where get_event_task will return
+        # a dummy completed future
+        if evt_handler and isinstance(evt_handler, EventTask):
             start_result = evt_handler.schedule_start()
             if start_result:
                 # schedule start returns True if it wasn't already started
