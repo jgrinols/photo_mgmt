@@ -168,7 +168,7 @@ class ICDownloader:
 
         logger.debug("initializing database connection pool...")
         async with DbConnectionPool.initialize(**self.prg_cfg.db_config) as db_pool:
-            self.prev_ids = self._get_previous_ids(db_pool)
+            self.prev_ids = await self._get_previous_ids(db_pool)
 
             # Default album is "All Photos", so this is the same as
             # calling `icloud.photos.all`.
