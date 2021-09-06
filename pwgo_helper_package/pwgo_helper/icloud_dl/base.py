@@ -336,9 +336,9 @@ class ICDownloader:
             msg = f"skipped: {truncated_path} exists in tracking db"
             logger.info(msg)
             counter.increment()
-            logger.debug("have found %s consecutive existing media items", counter)
+            logger.debug("have found %s consecutive existing media items", counter.value())
         if not id_exists:
-            if counter():
+            if counter.value():
                 logger.debug("found non-existing media item...resetting existing item counter")
             counter.reset()
             logger.debug("media item qualifies for download")
