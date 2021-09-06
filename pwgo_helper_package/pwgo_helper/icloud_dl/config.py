@@ -35,6 +35,7 @@ class Configuration():
         self.max_retries = 5
         self.wait_seconds = 5
         self.mfa_timeout = 30
+        self.lookback_days = None
 
     @staticmethod
     def get() -> Configuration:
