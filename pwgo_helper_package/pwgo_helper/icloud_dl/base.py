@@ -256,7 +256,7 @@ class ICDownloader:
             """
             logger.debug("using %s as lookback cutoff date")
             lookback_date = datetime.date.today() - datetime.timedelta(days=self.icdl_cfg.lookback_days)
-            await cur.execute(get_ids_sql, self.icdl_cfg.username, lookback_date)
+            await cur.execute(get_ids_sql, (self.icdl_cfg.username, lookback_date))
             prev_ids = await cur.fetchall()
             if not prev_ids:
                 prev_ids = []
