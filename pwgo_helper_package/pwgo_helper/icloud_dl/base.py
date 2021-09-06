@@ -183,6 +183,7 @@ class ICDownloader:
                 raise
 
             photos.exception_handler = _photos_exception_handler
+            photos_cnt = len(photos)
 
             if self.icdl_cfg.list_albums:
                 albums_dict = self.icloud.photos.albums
@@ -198,19 +199,21 @@ class ICDownloader:
 
             if self.icdl_cfg.recent is not None:
                 logger.debug("filtering photos set to %s most recent",self.icdl_cfg.recent)
+                photos_cnt = self.icdl_cfg.recent
                 photos = itertools.islice(photos, self.icdl_cfg.recent)
 
             if self.icdl_cfg.until_found is not None:
                 # ensure photos iterator doesn't have a known length
+                photos_cnt = "???"
                 photos = (p for p in photos)
 
             directory = os.path.normpath(self.icdl_cfg.directory)
 
-            plural_suffix = "" if len(photos) == 1 else "s"
+            plural_suffix = "" if photos_cnt == 1 else "s"
             video_suffix = ""
-            photos_count_str = "the first" if len(photos) == 1 else len(photos)
+            photos_count_str = "the first" if photos_cnt == 1 else photos_cnt
             if not self.icdl_cfg.skip_videos:
-                video_suffix = " or video" if len(photos) == 1 else " and videos"
+                video_suffix = " or video" if photos_cnt == 1 else " and videos"
             logger.info("Downloading %s %s photo%s%s to %s ...",
                 photos_count_str,
                 self.icdl_cfg.size,
@@ -219,7 +222,8 @@ class ICDownloader:
                 directory,
             )
 
-            photos_iterator = iter(photos)
+            photos_enumerator = photos
+            photos_iterator = iter(photos_enumerator)
             consecutive_files_found = Counter(0)
 
             download_results = []
