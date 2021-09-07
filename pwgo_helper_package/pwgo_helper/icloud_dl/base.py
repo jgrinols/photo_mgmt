@@ -248,15 +248,15 @@ class ICDownloader:
     async def _get_previous_ids(self, db_pool):
         logger.debug("getting list of record ids for previously downloaded media items")
         async with db_pool.acquire_dict_cursor(db=self.icdl_cfg.tracking_db) as (cur,_):
-            get_ids_sql = f"""
+            get_ids_sql = """
                 SELECT MasterRecordId
                 FROM download_log
-                WHERE MediaCreatedDateTime >= %s
+                WHERE MediaCreatedDateTime >= '%s'
                 ORDER BY MediaCreatedDateTime DESC;
             """
-            logger.debug("using %s as lookback cutoff date")
             lookback_date = datetime.date.today() - datetime.timedelta(days=self.icdl_cfg.lookback_days)
-            await cur.execute(get_ids_sql, (lookback_date))
+            logger.debug("using %s as lookback cutoff date", lookback_date.strftime("%Y-%m-%d"))
+            await cur.execute(get_ids_sql, (lookback_date.strftime("%Y-%m-%d")))
             prev_ids = await cur.fetchall()
             if not prev_ids:
                 prev_ids = []
