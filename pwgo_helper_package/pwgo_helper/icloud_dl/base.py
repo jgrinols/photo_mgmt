@@ -251,12 +251,12 @@ class ICDownloader:
             get_ids_sql = """
                 SELECT MasterRecordId
                 FROM download_log
-                WHERE MediaCreatedDateTime >= '%s'
+                WHERE MediaCreatedDateTime >= %s
                 ORDER BY MediaCreatedDateTime DESC;
             """
             lookback_date = datetime.date.today() - datetime.timedelta(days=self.icdl_cfg.lookback_days)
             logger.debug("using %s as lookback cutoff date", lookback_date.strftime("%Y-%m-%d"))
-            await cur.execute(get_ids_sql, (lookback_date.strftime("%Y-%m-%d")))
+            await cur.execute(get_ids_sql, (lookback_date))
             prev_ids = await cur.fetchall()
             if not prev_ids:
                 prev_ids = []
