@@ -267,6 +267,7 @@ class ICDownloader:
         """internal function for actually downloading the photos"""
         logger.info("processing item %s with id %s", photo.filename, photo.id)
 
+        inserted_tracking_id = None
         if self.icdl_cfg.skip_videos and photo.item_type != "image":
             logger.debug("Skipping %s, only downloading photos.", photo.filename)
             return
@@ -345,46 +346,46 @@ class ICDownloader:
             if not self.icdl_cfg.only_print_filenames:
                 logger.info("Downloading %s", truncated_path)
 
-                download_result = download.download_media(
-                    self.icloud, photo, download_path, download_size
-                )
+                try:
+                    download_result = download.download_media(
+                        self.icloud, photo, download_path, download_size
+                    )
 
-                if download_result:
-                    logger.debug("successfully downloaded %s", photo.filename)
-                    if self.icdl_cfg.convert_heic and photo.filename.lower().endswith(".heic"):
-                        logger.debug("attempting to covert heic file to jpeg")
-                        try:
-                            pre, _ = os.path.splitext(download_path)
-                            new_dl_path = pre + ".JPG"
-                            subprocess.run(['convert', download_path, new_dl_path], check=True)
-                            os.remove(download_path)
-                            download_path = new_dl_path
-                            logger.debug("successfully converted file to: %s", download_path)
-                        except subprocess.CalledProcessError as err:
-                            err_msg = f"CalledProcessError({err.returncode}): error converting {photo.filename} to JPG"
-                            logger.exception(err_msg)
-                            os.remove(download_path)
-                            raise
-                        except OSError:
-                            logger.exception("OSError: error deleting file %s", download_path)
+                    if download_result:
+                        logger.debug("successfully downloaded %s", photo.filename)
+                        if self.icdl_cfg.convert_heic and photo.filename.lower().endswith(".heic"):
+                            logger.debug("attempting to covert heic file to jpeg")
+                            try:
+                                pre, _ = os.path.splitext(download_path)
+                                new_dl_path = pre + ".JPG"
+                                subprocess.run(['convert', download_path, new_dl_path], check=True)
+                                os.remove(download_path)
+                                download_path = new_dl_path
+                                logger.debug("successfully converted file to: %s", download_path)
+                            except subprocess.CalledProcessError as err:
+                                err_msg = f"CalledProcessError({err.returncode}): error converting {photo.filename} to JPG"
+                                logger.exception(err_msg)
+                                os.remove(download_path)
+                                raise
+                            except OSError:
+                                logger.exception("OSError: error deleting file %s", download_path)
 
-                    download.set_utime(download_path, created_date)
+                        download.set_utime(download_path, created_date)
 
-                    self.prev_ids.append({ "MasterRecordId": photo.id })
-                    logger.debug("inserting downloaded file into tracking db")
-                    insert_tracking_sql = """
-                        INSERT INTO download_log (
-                            MasterRecordId,
-                            Account,
-                            MediaType,
-                            OriginalFilename,
-                            SavedFilePath,
-                            MediaCreatedDateTime)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    """
+                        self.prev_ids.append({ "MasterRecordId": photo.id })
+                        logger.debug("inserting downloaded file into tracking db")
+                        insert_tracking_sql = """
+                            INSERT INTO download_log (
+                                MasterRecordId,
+                                Account,
+                                MediaType,
+                                OriginalFilename,
+                                SavedFilePath,
+                                MediaCreatedDateTime)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """
 
-                    async with db_pool.acquire_dict_cursor(db=self.icdl_cfg.tracking_db) as (cur,conn):
-                        try:
+                        async with db_pool.acquire_dict_cursor(db=self.icdl_cfg.tracking_db) as (cur,conn):
                             await cur.execute(insert_tracking_sql, (
                                     photo.id,
                                     self.icdl_cfg.username,
@@ -394,11 +395,19 @@ class ICDownloader:
                                     created_date
                                 ))
                             await conn.commit()
+                            await cur.execute("SELECT LAST_INSERT_ID() AS id;")
+                            rec = await cur.fetchone()
+                            # make sure we don't still have a reference to a previously inserted id
+                            inserted_tracking_id = rec["id"]
 
-                        except pymysql.Error:
-                            logger.exception("Error inserting tracking record")
-                            os.remove(download_path)
-                            raise
+                except Exception:
+                    if os.path.exists(download_path):
+                        os.remove(download_path)
+                    if inserted_tracking_id:
+                        async with db_pool.acquire_dict_cursor(db=self.icdl_cfg.tracking_db) as (cur,conn):
+                            await cur.execute("DELETE FROM download_log WHERE id = %s", inserted_tracking_id)
+                    logger.exception()
+                    raise
 
     def _should_break(self, counter):
         """Exit if until_found condition is reached"""
