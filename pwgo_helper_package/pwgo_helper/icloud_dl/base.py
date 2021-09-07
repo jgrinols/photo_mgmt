@@ -406,7 +406,7 @@ class ICDownloader:
                     if inserted_tracking_id:
                         async with db_pool.acquire_dict_cursor(db=self.icdl_cfg.tracking_db) as (cur,conn):
                             await cur.execute("DELETE FROM download_log WHERE id = %s", inserted_tracking_id)
-                    logger.exception()
+                    logger.exception("error occurred during download process")
                     raise
 
     def _should_break(self, counter):
