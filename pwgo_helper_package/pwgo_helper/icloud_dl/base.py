@@ -83,9 +83,13 @@ logger = ProgramConfig.get().get_logger(__name__)
 )
 @click.option(
     "--convert-heic",
-    help="Auto-convert heic images to jpeg "
-    + "(default: retain heic format)",
+    help="Auto-convert heic images to jpeg (default: retain heic format)",
     is_flag=True,
+)
+@click.option(
+    "--convert-mov",
+    help="Auto-convert mov (quicktime) files to mp4 (default: retain mov format)",
+    is_flag=True
 )
 @click.option(
     "--auto-delete",
@@ -353,10 +357,10 @@ class ICDownloader:
 
                     if download_result:
                         logger.debug("successfully downloaded %s", photo.filename)
+                        pre, _ = os.path.splitext(download_path)
                         if self.icdl_cfg.convert_heic and photo.filename.lower().endswith(".heic"):
                             logger.debug("attempting to covert heic file to jpeg")
                             try:
-                                pre, _ = os.path.splitext(download_path)
                                 new_dl_path = pre + ".JPG"
                                 subprocess.run(['convert', download_path, new_dl_path], check=True)
                                 os.remove(download_path)
@@ -366,6 +370,30 @@ class ICDownloader:
                                 err_msg = f"CalledProcessError({err.returncode}): error converting {photo.filename} to JPG"
                                 logger.exception(err_msg)
                                 os.remove(download_path)
+                                if os.path.exists(new_dl_path):
+                                    os.remove(new_dl_path)
+                                raise
+                            except OSError:
+                                logger.exception("OSError: error deleting file %s", download_path)
+
+                        if self.icdl_cfg.convert_mov and photo.filename.lower().endswith("mov"):
+                            logger.debug("attempting to covert mov file to mp4")
+                            new_dl_path = pre + ".MP4"
+                            cmd = [
+                                "ffmpeg", "-i", download_path, "-vcodec", "libx264", "-tune", "film",
+                                "-movflags", "+faststart", new_dl_path
+                            ]
+                            try:
+                                subprocess.run(cmd, check=True)
+                                os.remove(download_path)
+                                download_path = new_dl_path
+                                logger.debug("successfully converted file to: %s", download_path)
+                            except subprocess.CalledProcessError as err:
+                                err_msg = f"CalledProcessError({err.returncode}): error converting {photo.filename} to MP4"
+                                logger.exception(err_msg)
+                                os.remove(download_path)
+                                if os.path.exists(new_dl_path):
+                                    os.remove(new_dl_path)
                                 raise
                             except OSError:
                                 logger.exception("OSError: error deleting file %s", download_path)

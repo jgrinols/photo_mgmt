@@ -28,6 +28,7 @@ class Configuration():
         self.skip_videos = False
         self.force_size = False
         self.convert_heic = False
+        self.convert_mov = False
         self.auto_delete = False
         self.only_print_filenames = False
         self.folder_structure = "{:%Y/%m}"
