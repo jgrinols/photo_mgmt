@@ -1,7 +1,8 @@
 """container module for custom log formatter class"""
-import logging, asyncio, datetime as dt
+import logging, asyncio, os, datetime as dt
 
-from slack_logger import SlackHandler
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
 
 # pylint: disable=invalid-name
 _user_log_level = "NOTSET"
@@ -46,18 +47,15 @@ def _initialize():
         CustomFormatter("%(asctime)s - %(levelname)s - %(taskname)s: %(message)s", datefmt='%Y-%m-%d %H:%M:%S.%f')
     )
     root_logger.addHandler(console_hndlr)
-
-def attach_alert_handler(url):
-    """adds a slack error alert handler"""
-    root_logger = logging.getLogger()
-    alert_hndlr = SlackHandler(url)
-    alert_hndlr.setLevel("ERROR")
-    # pylint: disable=line-too-long
-    alert_hndlr.setFormatter(CustomFormatter(
-            '%(levelname)s - logger %(name)s generated message from [%(module)s].[%(funcName)s] (%(lineno)s) at %(asctime)s',
-            datefmt='%Y-%m-%d %H:%M:%S.%f'
-        ))
-    root_logger.addHandler(alert_hndlr)
+    if "SLACK_LOG_API_TOKEN" in os.environ and "SLACK_LOG_CHANNEL" in os.environ:
+        alert_hndlr = SlackApiHandler()
+        alert_hndlr.setLevel("ERROR")
+        # pylint: disable=line-too-long
+        alert_hndlr.setFormatter(CustomFormatter(
+                '%(levelname)s - logger %(name)s generated message from [%(module)s].[%(funcName)s] (%(lineno)s) at %(asctime)s',
+                datefmt='%Y-%m-%d %H:%M:%S.%f'
+            ))
+        root_logger.addHandler(alert_hndlr)
 
 class CustomLogger(logging.Logger):
     """implements custom logger instantiation logic"""
@@ -103,5 +101,20 @@ class TaskFilter(logging.Filter):
             pass
 
         return True
+
+class SlackApiHandler(logging.Handler):
+    """posts a log message to slack channel. Environment must include:
+        SLACK_LOG_API_TOKEN
+        SLACK_LOG_CHANNEL"""
+    def __init__(self, *args, **kwargs):
+        super(SlackApiHandler, self).__init__(*args, **kwargs)
+        self.client = WebClient(token=os.environ["SLACK_LOG_API_TOKEN"])
+
+    def emit(self, record):
+        msg = self.format(record)
+        try:
+            _ = self.client.chat_postMessage(channel=os.environ["SLACK_LOG_CHANNEL"], text=msg)
+        except SlackApiError as err:
+            raise RuntimeError(f"Error while attempting to log message to slack: {err.response['error']}") from err
 
 _initialize()

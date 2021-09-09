@@ -34,8 +34,6 @@ class Configuration:
                 pwgo_logging.set_log_level(val)
             if key == "lib_log_level":
                 pwgo_logging.set_lib_log_level(val)
-            if key == "slack_webhook_url" and val:
-                pwgo_logging.attach_alert_handler(val)
             if hasattr(cfg, key):
                 setattr(cfg, key, val)
         # log init parameters in a separate loop so that we're logging with

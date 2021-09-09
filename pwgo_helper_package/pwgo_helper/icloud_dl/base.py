@@ -1,12 +1,13 @@
 """entry module for the icloud-dl command"""
 from __future__ import print_function
 import os, sys, time, datetime, json, subprocess, itertools, asyncio
+from datetime import datetime
 
 import click
-import pymysql
-import pymysql.cursors
 from pyicloud_ipd.exceptions import PyiCloudAPIResponseError
 from pid import PidFile
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
 
 from ..config import Configuration as ProgramConfig
 from .config import Configuration as ICDLConfig
@@ -152,6 +153,8 @@ class ICDownloader:
 
     async def run(self):
         """initiated execution of the download process"""
+        start_time = datetime.now()
+        end_time = None
         def _photos_exception_handler(ex, retries):
             """Handles session errors in the PhotoAlbum photos iterator"""
             if "Invalid global session" in str(ex):
@@ -230,24 +233,49 @@ class ICDownloader:
             photos_iterator = iter(photos_enumerator)
             consecutive_files_found = Counter(0)
 
-            download_results = []
+            dl_counter = 0
             while True:
                 try:
                     if self._should_break(consecutive_files_found):
                         logger.info("Found %s consecutive previously downloaded photos. Exiting", self.icdl_cfg.until_found)
                         break
                     item = next(photos_iterator)
-                    download_results.append(await self._download_photo(consecutive_files_found, item, db_pool))
+                    if await self._download_photo(consecutive_files_found, item, db_pool):
+                        dl_counter += 1
                 except StopIteration:
                     break
+            end_time = datetime.now()
 
             if not self.icdl_cfg.only_print_filenames:
                 logger.info("All photos have been downloaded!")
 
+                deletions = []
                 if self.icdl_cfg.auto_delete:
                     logger.info("deleting photos marked as deleted in icloud")
                     deletions = autodelete_photos(self.icloud, self.icdl_cfg.folder_structure, directory)
                     logger.info("deleted %s photos", len(deletions))
+                    end_time = datetime.now()
+
+                if "SLACK_LOG_API_TOKEN" in os.environ and "SLACK_LOG_CHANNEL" in os.environ:
+                    msg_blks = [{ "type": "section", "text": {
+                        "type": "mrkdwn", "text": f"*ICloud Download Results for {self.icdl_cfg.username}*"
+                    }}]
+                    msg_lines = [
+                        f"Execution began at {start_time.strftime('%H:%M:%S')} and ended at {datetime.now().strftime('%H:%M:%S')} ({(end_time-start_time).total_seconds()} seconds)",
+                        f"Downloaded {dl_counter} media items"
+                    ]
+                    if deletions:
+                        msg_lines.append(f"Deleted {len(deletions)} media items")
+                    newline = "\n"
+                    msg_attach = [{"color": "#007a5a", "blocks": [{
+                            "type": "section", "text": { "type": "mrkdwn", "text": f"{newline.join(msg_lines)}"}
+                        }]
+                    }]
+                    try:
+                        client = WebClient(token=os.environ["SLACK_LOG_API_TOKEN"])
+                        client.chat_postMessage(channel=os.environ["SLACK_LOG_CHANNEL"], blocks=msg_blks, attachments=msg_attach)
+                    except SlackApiError as err:
+                        logger.warning("Error posting results to slack: %s", err.response["error"])
 
     async def _get_previous_ids(self, db_pool):
         logger.debug("getting list of record ids for previously downloaded media items")
@@ -267,19 +295,19 @@ class ICDownloader:
         logger.debug("pulled %s previously downloaded ids", len(prev_ids))
         return prev_ids
 
-    async def _download_photo(self, counter, photo, db_pool):
+    async def _download_photo(self, counter, photo, db_pool) -> bool:
         """internal function for actually downloading the photos"""
         logger.info("processing item %s with id %s", photo.filename, photo.id)
 
         inserted_tracking_id = None
         if self.icdl_cfg.skip_videos and photo.item_type != "image":
             logger.debug("Skipping %s, only downloading photos.", photo.filename)
-            return
+            return False
 
         if photo.item_type != "image" and photo.item_type != "movie":
             logger.debug("Skipping %s, only downloading photos and videos. (Item type was: %s)"
                 , photo.filename, photo.item_type)
-            return
+            return False
 
         try:
             created_date = photo.created.astimezone()
@@ -317,13 +345,13 @@ class ICDownloader:
                 }, outfile)
                 # pylint: enable=protected-access
             logger.error("icloudpd has saved the photo record to: ./icloudpd-photo-error.json")
-            return
+            return False
 
         if self.icdl_cfg.size not in versions and self.icdl_cfg.size != "original":
             if self.icdl_cfg.force_size:
                 filename = photo.filename.encode("utf-8").decode("ascii", "ignore")
                 logger.warning("%s size does not exist for %s. Skipping...", self.icdl_cfg.size, filename)
-                return
+                return False
             download_size = "original"
 
         download_path = local_download_path(photo, download_size, download_dir)
@@ -436,6 +464,7 @@ class ICDownloader:
                             await cur.execute("DELETE FROM download_log WHERE id = %s", inserted_tracking_id)
                     logger.exception("error occurred during download process")
                     raise
+        return True
 
     def _should_break(self, counter):
         """Exit if until_found condition is reached"""
