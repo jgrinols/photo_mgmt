@@ -27,12 +27,16 @@ def _login() -> requests.Session:
     logger.info("Login: ...")
     login_params = { "format": "json" }
     login_url = urljoin(sync_cfg.base_url, sync_cfg.service_path)
-    login_response = session.post(login_url, params=login_params, data=login_data)
-    logger.debug(login_response.text)
-    resp_json = json.loads(login_response.text)
-    if not "result" in resp_json or not resp_json["result"]:
-        logger.fatal(resp_json["message"])
-        raise RuntimeError("Login Failed!")
+    try:
+        login_response = session.post(login_url, params=login_params, data=login_data)
+        login_response.raise_for_status()
+        resp_json = json.loads(login_response.text)
+        if not "result" in resp_json or not resp_json["result"]:
+            logger.fatal(resp_json["message"])
+            raise RuntimeError("Login Failed!")
+    except (requests.exceptions.HTTPError, RuntimeError):
+        logger.fatal("Login error")
+        raise
     logger.info("Login: OK")
     logger.debug(login_response.text)
 
@@ -63,9 +67,13 @@ def _sync_single(session: requests.Session):
     sync_url = urljoin(sync_cfg.base_url, sync_cfg.admin_path)
     sync_params = { "page": "site_update", "site": "1" }
     sync_response = session.post(sync_url, params=sync_params, data=sync_data)
+    sync_response.raise_for_status()
+    if sync_response.status_code == 504:
+        logger.warning("Received status code 504. It appears the sync operation is taking longer than normal.")
+    elif not sync_response.ok:
+        logger.error(sync_response.text)
+        raise RuntimeError("error while syncing photos")
     time_end = time.time()
-    session.close()
-    logger.info("Connection closed")
 
     return sync_response, (time_end - time_start)
 
@@ -99,20 +107,25 @@ def _compute_missing_hashes(session: requests.Session, token: str) -> int:
         "pwg_token": token
     }
     compute_md5_url = urljoin(sync_cfg.base_url, sync_cfg.service_path)
-    compute_md5_response = session.post(compute_md5_url, params=compute_md5_params, data=compute_md5_data)
+    try:
+        compute_md5_response = session.post(compute_md5_url, params=compute_md5_params, data=compute_md5_data)
+        compute_md5_response.raise_for_status()
 
-    if not compute_md5_response.ok:
-        logger.error(compute_md5_response.text)
-        raise RuntimeError("error while calculating missing md5 hashes")
-    else:
-        logger.debug("compute md5 response: %s", compute_md5_response.text)
-        md5_response_data = json.loads(compute_md5_response.text)
-        if "result" in md5_response_data and md5_response_data["result"]:
-            logger.info("added hashes for %s photos", md5_response_data["result"]["nb_added"])
-            logger.info("%s remaining photos with no hash", md5_response_data["result"]["nb_no_md5sum"])
-            hashes_added += md5_response_data["result"]["nb_added"]
-            if int(md5_response_data["result"]["nb_no_md5sum"]):
-                hashes_added += _compute_missing_hashes(session, token)
+        if not compute_md5_response.ok:
+            logger.error(compute_md5_response.text)
+            raise RuntimeError("error while calculating missing md5 hashes")
+    except (requests.exceptions.HTTPError, RuntimeError):
+        logger.error("Calculate MD5 request failed")
+        raise
+
+    logger.debug("compute md5 response: %s", compute_md5_response.text)
+    md5_response_data = json.loads(compute_md5_response.text)
+    if "result" in md5_response_data and md5_response_data["result"]:
+        logger.info("added hashes for %s photos", md5_response_data["result"]["nb_added"])
+        logger.info("%s remaining photos with no hash", md5_response_data["result"]["nb_no_md5sum"])
+        hashes_added += md5_response_data["result"]["nb_added"]
+        if int(md5_response_data["result"]["nb_no_md5sum"]):
+            hashes_added += _compute_missing_hashes(session, token)
 
     return hashes_added
 
@@ -121,14 +134,9 @@ async def sync():
     prg_cfg = ProgramConfig.get()
     logger = prg_cfg.get_logger(__name__)
     session = _login()
-    response, duration = _sync_single(session)
-    logger.info("Status: %s, Duration: %s", response.status_code, duration)
-    if response.status_code == 504:
-        logger.warning("Received status code 504. It appears the sync operation is taking longer than normal.")
-    elif not response.ok:
-        logger.error(response.text)
-        raise RuntimeError("error while syncing photos")
-    else:
+    try:
+        response, duration = _sync_single(session)
+        logger.info("Status: %s, Duration: %s", response.status_code, duration)
         parsed_response = BeautifulSoup(response.text, "html.parser")
         for item in parsed_response.select("li[class^=update_summary]"):
             logger.info(item.text)
@@ -149,6 +157,8 @@ async def sync():
                 token = _get_pwg_token(session)
                 hashes_added = _compute_missing_hashes(session, token)
                 logger.info("added %s missing hashes", hashes_added)
+    finally:
+        session.close()
 
 @click.command("sync")
 @click.option(
