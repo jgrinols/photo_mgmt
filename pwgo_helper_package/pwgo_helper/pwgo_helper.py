@@ -10,6 +10,7 @@ from .icloud_dl.base import main
 from .sync.main import sync_entry
 # pylint: disable=reimported
 from . import logging as pwgo_logging
+from ..setup import setup_args
 
 MODULE_BASE_PATH = os.path.dirname(__file__)
 logging.setLoggerClass(pwgo_logging.CustomLogger)
@@ -66,6 +67,12 @@ def pwgo_helper_entry():
     """console script entry point"""
     pwgo_helper(auto_envvar_prefix="PWGO_HLPR")
 
+@click.command("version")
+def version():
+    """outputs the pwgo-helper version"""
+    print(setup_args["version"])
+
+pwgo_helper.add_command(version)
 pwgo_helper.add_command(agent_entry)
 pwgo_helper.add_command(main)
 pwgo_helper.add_command(sync_entry)
