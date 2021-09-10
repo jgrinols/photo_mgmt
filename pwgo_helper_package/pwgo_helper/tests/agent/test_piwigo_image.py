@@ -45,6 +45,17 @@ class TestPiwigoImageMetadata:
         with pytest.raises(AttributeError, match="Required attribute comment missing"):
             _ = PiwigoImageMetadata(mdata)
 
+    def test_null_fields(self):
+        """tests that we gracefully handle receiving null values from db"""
+        mdata = {
+            "name": None,
+            "author": None,
+            "date_creation": None,
+            "comment": None,
+            "tags": None
+        }
+        pwgo_mdata = PiwigoImageMetadata(mdata)
+
     def test_long_metadata_fields(self):
         """tests that metadata values that exceed iptc specs are properly truncated"""
         mdata = {

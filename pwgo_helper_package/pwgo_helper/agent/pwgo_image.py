@@ -85,6 +85,7 @@ class PiwigoImage:
 class PiwigoImageMetadata:
     """DTO to encapsulate the metadata fields that we're interested in"""
     def __init__(self, raw: Dict):
+        self._logger = ProgramConfig.get().get_logger(__name__)
         required_fields = ["name", "comment", "author", "date_creation", "tags"]
         for field in required_fields:
             if not field in raw:
@@ -93,11 +94,19 @@ class PiwigoImageMetadata:
         self.name = raw[required_fields[0]]
         self.comment = raw[required_fields[1]]
         self.author = raw[required_fields[2]]
-        self.create_date = datetime.datetime.strptime(
-            raw[required_fields[3]],
-            '%Y-%m-%d %H:%M:%S'
-        )
-        self._tags = list(dict.fromkeys(raw[required_fields[4]]))
+        self.create_date = None
+        if raw[required_fields[3]]:
+            try:
+                self.create_date = datetime.datetime.strptime(
+                    raw[required_fields[3]],
+                    '%Y-%m-%d %H:%M:%S'
+                )
+            except ValueError:
+                self._logger.warning("Unable to parse creation date")
+
+        self._tags = []
+        if raw[required_fields[4]]:
+            self._tags = list(dict.fromkeys(raw[required_fields[4]]))
 
     @property
     def tags(self) -> list[str]:
