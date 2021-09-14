@@ -86,9 +86,14 @@ class ImageMetadataEventTask(EventTask):
             else:
                 logger.debug("no exising task found for image %s. creating new task.", evt.image_id)
                 new_task = ImageMetadataEventTask(evt.image_id)
-                new_task.add_event(evt)
-                result_fut = asyncio.Future()
-                result_fut.set_result(new_task)
+                # if the event on this new task is a no-op (like a non autotag category)
+                # then we make sure to keep the dummy future so we don't create a
+                # pointless task that waits and then does nothing
+                if new_task.add_event(evt):
+                    result_fut = asyncio.Future()
+                    result_fut.set_result(new_task)
+                else:
+                    new_task.cancel()
 
         return result_fut
 
@@ -143,7 +148,7 @@ class ImageMetadataEventTask(EventTask):
             self._sleep_futures.append(asyncio.ensure_future(asyncio.sleep(delay)))
             self._sleep_futures[-1].add_done_callback(self._schedule_action_task)
 
-    def add_event(self, evt: ImageEventRow):
+    def add_event(self, evt: ImageEventRow) -> bool:
         """adds an event to the image metadata event task"""
         if not self.is_waiting():
             raise RuntimeError("attempted to process a new tagging event after execution has begun")
@@ -151,15 +156,15 @@ class ImageMetadataEventTask(EventTask):
         self._reset_delay(delay=self._std_delay)
 
         if evt.table_name == "image_tag":
-            self._add_tagging_event(evt.table_primary_key[1], evt.db_event_type)
+            return self._add_tagging_event(evt.table_primary_key[1], evt.db_event_type)
         elif evt.table_name == "image_category":
-            self._add_category_event(evt.table_primary_key[1], evt.db_event_type)
+            return self._add_category_event(evt.table_primary_key[1], evt.db_event_type)
         elif evt.table_name == "images":
-            self._add_image_event()
+            return self._add_image_event()
         else:
             raise RuntimeError(f"No event handler for table {evt.table_name}")
 
-    def _add_tagging_event(self, tag_id, oper):
+    def _add_tagging_event(self, tag_id, oper) -> bool:
         if tag_id not in self._included_tags:
             self._included_tags[tag_id] = 0
         if oper == "INSERT":
@@ -172,7 +177,9 @@ class ImageMetadataEventTask(EventTask):
         self._write_metadata = True
         self._included_tags[tag_id] += increment
 
-    def _add_category_event(self, category_id, oper):
+        return True
+
+    def _add_category_event(self, category_id, oper) -> bool:
         if category_id == AgentConfig.get().auto_tag_alb:
             # since we're only handling the autotag category, this implementation
             # could be simplified, but not worth changing because it will make it
@@ -188,8 +195,12 @@ class ImageMetadataEventTask(EventTask):
 
             self._included_cats[category_id] += increment
 
-    def _add_image_event(self):
+            return True
+        return False
+
+    def _add_image_event(self) -> bool:
         self._write_metadata = True
+        return True
 
     def _schedule_action_task(self, _fut):
         self._action_task = asyncio.create_task(self._handle_events())
