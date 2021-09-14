@@ -1,7 +1,7 @@
 """entry module for the icloud-dl command"""
 from __future__ import print_function
-import os, sys, time, datetime, json, subprocess, itertools, asyncio
-from datetime import datetime
+import os, sys, time, json, subprocess, itertools, asyncio
+from datetime import datetime, timedelta
 
 import click
 from pyicloud_ipd.exceptions import PyiCloudAPIResponseError
@@ -286,7 +286,7 @@ class ICDownloader:
                 WHERE MediaCreatedDateTime >= %s
                 ORDER BY MediaCreatedDateTime DESC;
             """
-            lookback_date = datetime.date.today() - datetime.timedelta(days=self.icdl_cfg.lookback_days)
+            lookback_date = datetime.today() - timedelta(days=self.icdl_cfg.lookback_days)
             logger.debug("using %s as lookback cutoff date", lookback_date.strftime("%Y-%m-%d"))
             await cur.execute(get_ids_sql, (lookback_date))
             prev_ids = await cur.fetchall()
