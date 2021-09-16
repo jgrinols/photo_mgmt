@@ -5,7 +5,7 @@ from unittest.mock import patch,MagicMock
 import pytest
 
 from ...agent.database_event_row import ImageEventRow
-from ...agent.event_task import EventTask
+from ...agent.event_task import EventTask, EventTaskStatus
 from ...agent.image_metadata_event_task import ImageMetadataEventTask
 from ...agent.image_metadata_event_task import AutoTagger
 from ...agent.file_metadata_writer import FileMetadataWriter
@@ -60,7 +60,7 @@ class TestImageMetadataEventTask:
         tag_event_handler = await EventTask.get_event_task(evt_row1)
         tag_event_handler.schedule_start()
         await asyncio.sleep(AgentConfig.get().img_tag_wait_secs + 1)
-        with pytest.raises(RuntimeError, match="attempted to reset delay after execution has begun"):
+        with pytest.raises(RuntimeError, match="cannot reset delay for task with status DONE"):
             tag_event_handler._reset_delay(delay=1)
 
     @pytest.mark.asyncio
@@ -80,7 +80,7 @@ class TestImageMetadataEventTask:
         tag_event_handler = await EventTask.get_event_task(evt_row1)
         tag_event_handler.schedule_start()
         await asyncio.sleep(AgentConfig.get().img_tag_wait_secs + 1)
-        with pytest.raises(RuntimeError, match="attempted to cancel image tag event task after execution has begun"):
+        with pytest.raises(RuntimeError, match="cannot cancel task in state DONE"):
             tag_event_handler.cancel()
 
     @pytest.mark.asyncio
@@ -98,13 +98,13 @@ class TestImageMetadataEventTask:
             table_primary_key=[1,1],
             operation="INSERT")
         tag_event_handler = await EventTask.get_event_task(evt_row1)
-        assert tag_event_handler.status == "INIT"
+        assert tag_event_handler.status == EventTaskStatus.INITIALIZED
         tag_event_handler.schedule_start()
         await asyncio.sleep(0)
-        assert tag_event_handler.status == "WAIT"
+        assert tag_event_handler.status == EventTaskStatus.WAITING
         await asyncio.sleep(AgentConfig.get().img_tag_wait_secs + 1)
         res = await tag_event_handler
-        assert tag_event_handler.status == "DONE"
+        assert tag_event_handler.status == EventTaskStatus.DONE
         mck_atag_create.return_value.__aenter__.return_value.add_implicit_tags.assert_awaited_once()
         assert res
 
@@ -122,7 +122,7 @@ class TestImageMetadataEventTask:
             table_primary_key=[1,1],
             operation="INSERT")
         tag_event_handler = await EventTask.get_event_task(evt_row1)
-        assert tag_event_handler.status == "INIT"
+        assert tag_event_handler.status == EventTaskStatus.INITIALIZED
         tag_event_handler.schedule_start()
         mck_callback = MagicMock()
         tag_event_handler.attach_callback(mck_callback)
@@ -151,7 +151,7 @@ class TestImageMetadataEventTask:
             table_primary_key=[1,1],
             operation="DELETE")
         tag_event_handler1 = await EventTask.get_event_task(evt_row1)
-        assert tag_event_handler1.status == "INIT"
+        assert tag_event_handler1.status == EventTaskStatus.INITIALIZED
         tag_event_handler1.schedule_start()
         await asyncio.sleep(0)
         tag_event_handler2 = await EventTask.get_event_task(evt_row2)
@@ -170,7 +170,7 @@ class TestImageMetadataEventTask:
                 table_primary_key=[1,125],
                 operation="INSERT")
             mdata_event_handler = await EventTask.get_event_task(evt_row1)
-            assert mdata_event_handler.status == "INIT"
+            assert mdata_event_handler.status == EventTaskStatus.INITIALIZED
             mdata_event_handler.schedule_start()
             await asyncio.sleep(0)
             res = await mdata_event_handler
@@ -185,17 +185,31 @@ class TestImageMetadataEventTask:
             mck_atag_create.return_value.__aenter__.return_value = MagicMock(spec=AutoTagger)
             evt_row1 = ImageEventRow(image_id=1,
                 table_name="image_category",
-                table_primary_key=[1,1],
+                table_primary_key=[1,125],
                 operation="INSERT")
             evt_row2 = ImageEventRow(image_id=1,
                 table_name="image_category",
-                table_primary_key=[1,1],
+                table_primary_key=[1,125],
                 operation="DELETE")
             mdata_event_handler = await EventTask.get_event_task(evt_row1)
-            assert mdata_event_handler.status == "INIT"
+            assert mdata_event_handler.status == EventTaskStatus.INITIALIZED
             mdata_event_handler.schedule_start()
             await asyncio.sleep(0)
             await EventTask.get_event_task(evt_row2)
+            await mdata_event_handler
+            mck_atag_create.return_value.__aenter__.return_value.autotag_image.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_image_cat_non_autotag(self):
+        """tests proper functioning when adding a category that doesn't need any handling"""
+        with patch.object(AutoTagger,"create") as mck_atag_create:
+            mck_atag_create.return_value.__aenter__.return_value = MagicMock(spec=AutoTagger)
+            evt_row1 = ImageEventRow(image_id=1,
+                table_name="image_category",
+                table_primary_key=[1,1],
+                operation="INSERT")
+            mdata_event_handler = await EventTask.get_event_task(evt_row1)
+            assert mdata_event_handler.status == EventTaskStatus.CANCELLED
             await mdata_event_handler
             mck_atag_create.return_value.__aenter__.return_value.autotag_image.assert_not_awaited()
 
@@ -217,7 +231,7 @@ class TestImageMetadataEventTask:
             table_primary_key=[1,125],
             operation="INSERT")
         mdata_event_handler = await EventTask.get_event_task(evt_row1)
-        assert mdata_event_handler.status == "INIT"
+        assert mdata_event_handler.status == EventTaskStatus.INITIALIZED
         mdata_event_handler.schedule_start()
         await asyncio.sleep(0)
         await EventTask.get_event_task(evt_row2)
@@ -251,7 +265,7 @@ class TestImageMetadataEventTask:
                 "date_creation": "after_date_creation"
             })
         mdata_event_handler = await EventTask.get_event_task(evt_row1)
-        assert mdata_event_handler.status == "INIT"
+        assert mdata_event_handler.status == EventTaskStatus.INITIALIZED
         mdata_event_handler.schedule_start()
         await asyncio.sleep(0)
         res = await mdata_event_handler

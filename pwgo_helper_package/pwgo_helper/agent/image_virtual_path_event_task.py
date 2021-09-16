@@ -5,7 +5,7 @@ import asyncio
 from path import Path
 
 from .database_event_row import ImageEventRow
-from .event_task import EventTask
+from .event_task import EventTask, EventTaskStatus
 from ..config import Configuration as ProgramConfig
 from .config import Configuration as AgentConfig
 from ..db_connection_pool import DbConnectionPool
@@ -60,10 +60,10 @@ class ImageVirtualPathEventTask(EventTask):
         if not self.is_scheduled():
             loop = asyncio.get_event_loop()
             self._virt_path_task = loop.run_in_executor(None, self._handle_event)
-            self.status = "EXEC_QUEUED"
+            self.status = EventTaskStatus.EXEC_QUEUED
 
     def _handle_event(self):
-        self.status = "EXEC"
+        self.status = EventTaskStatus.EXEC
 
         if self.event.db_event_type == "INSERT":
             self.logger.info("handling image virtual path insert")
@@ -91,7 +91,7 @@ class ImageVirtualPathEventTask(EventTask):
                 self.logger.debug("resolved existing virtual path to %s", virt_path)
             ImageVirtualPathEventTask._remove_path(virt_path)
 
-        self.status = "DONE"
+        self.status = EventTaskStatus.DONE
 
     async def _execute_task(self):
         res = await self._virt_path_task

@@ -6,7 +6,7 @@ from py_linq import Enumerable
 
 from ..config import Configuration as ProgramConfig
 from .config import Configuration as AgentConfig
-from .event_task import EventTask
+from .event_task import EventTask, EventTaskStatus
 from .autotagger import AutoTagger
 from .pwgo_image import PiwigoImage
 from .file_metadata_writer import FileMetadataWriter
@@ -89,53 +89,54 @@ class ImageMetadataEventTask(EventTask):
                 # if the event on this new task is a no-op (like a non autotag category)
                 # then we make sure to keep the dummy future so we don't create a
                 # pointless task that waits and then does nothing
-                if new_task.add_event(evt):
-                    result_fut = asyncio.Future()
-                    result_fut.set_result(new_task)
-                else:
+                keep_task = new_task.add_event(evt)
+                result_fut = asyncio.Future()
+                result_fut.set_result(new_task)
+                if not keep_task:
                     new_task.cancel()
 
         return result_fut
 
     def schedule_start(self) -> bool:
         """schedules execution of the image tag event handling task"""
+        if self.is_cancelled():
+            raise RuntimeError("attempted to schedule a cancelled metadata event task")
+
         if not self.is_scheduled():
             sleep_fut = asyncio.ensure_future(asyncio.sleep(self._std_delay))
             sleep_fut.add_done_callback(self._schedule_action_task)
             self._sleep_futures.append(sleep_fut)
-            self.status = "WAIT"
+            self.status = EventTaskStatus.WAITING
             return True
 
         return False
 
     async def _execute_task(self):
-        await self._sleep_futures[-1]
-        # we may have appended a new sleep future...
-        if not self._sleep_futures[-1].done():
-            await self._execute_task()
-            return
+        if self._sleep_futures:
+            await self._sleep_futures[-1]
+            # we may have appended a new sleep future...
+            if not self._sleep_futures[-1].done():
+                await self._execute_task()
+                return
 
-        if not self.status == "CANCELLED":
+        if not self.status == EventTaskStatus.CANCELLED:
             while not self._action_task:
                 await asyncio.sleep(0)
             return await self._action_task
 
-    def is_waiting(self) -> bool:
-        """returns True if the task is open for new tag events, False if not"""
-        return self.status in ["INIT","WAIT"]
-
     def cancel(self):
         """Cancels a the waiting image metadata event task"""
         if not self.is_waiting():
-            raise RuntimeError("attempted to cancel image tag event task after execution has begun")
+            raise RuntimeError(f"cannot cancel task in state {self.status}")
 
-        self._sleep_futures[-1].remove_done_callback(self._schedule_action_task)
-        self.status = "CANCELLED"
+        if self._sleep_futures:
+            self._sleep_futures[-1].remove_done_callback(self._schedule_action_task)
+        self.status = EventTaskStatus.CANCELLED
 
     def _reset_delay(self, **kwargs):
         """Resets the amount of time the task is to wait before proceeding to given number of seconds"""
         if not self.is_waiting():
-            raise RuntimeError("attempted to reset delay after execution has begun")
+            raise RuntimeError(f"cannot reset delay for task with status {self.status}")
 
         if "delay" in kwargs:
             delay = kwargs["delay"]
@@ -151,7 +152,7 @@ class ImageMetadataEventTask(EventTask):
     def add_event(self, evt: ImageEventRow) -> bool:
         """adds an event to the image metadata event task"""
         if not self.is_waiting():
-            raise RuntimeError("attempted to process a new tagging event after execution has begun")
+            raise RuntimeError(f"cannot add a new event to task in state {self.status}")
 
         self._reset_delay(delay=self._std_delay)
 
@@ -205,25 +206,23 @@ class ImageMetadataEventTask(EventTask):
     def _schedule_action_task(self, _fut):
         self._action_task = asyncio.create_task(self._handle_events())
         self._action_task.set_name("exec_task")
-        self.status = "EXEC_QUEUED"
+        self.status = EventTaskStatus.EXEC_QUEUED
 
     async def _handle_events(self):
+        self.status = EventTaskStatus.EXEC
         loop = asyncio.get_event_loop()
         handle_tags = Enumerable(self._included_tags.values()).any(lambda x: x > 0)
         handle_cats = Enumerable(self._included_cats.values()).any(lambda x: x > 0)
         if handle_tags or handle_cats:
             async with AutoTagger.create(self.image_id) as tagger:
                 if handle_tags:
-                    self.status = "EXEC_TAG_HANDLER"
                     await tagger.add_implicit_tags()
                 if handle_cats:
-                    self.status = "EXEC_CAT_HANDLER"
                     await tagger.autotag_image()
         if self._write_metadata:
-            self.status = "EXEC_MDATA_HANDLER"
             pwgo_img = await PiwigoImage.create(self.image_id, load_metadata=True)
             if not ProgramConfig.get().dry_run:
                 with FileMetadataWriter(pwgo_img) as writer:
                     await loop.run_in_executor(None,writer.write)
-        self.status = "DONE"
+        self.status = EventTaskStatus.DONE
         return True

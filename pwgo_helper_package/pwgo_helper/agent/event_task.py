@@ -4,6 +4,7 @@ from __future__ import annotations
 import inspect,asyncio
 from abc import ABC,abstractmethod,abstractclassmethod
 from typing import Dict
+from enum import IntEnum
 
 from .database_event_row import DatabaseEventRow
 from ..config import Configuration as ProgramConfig
@@ -59,7 +60,7 @@ class EventTask(ABC):
 
     def __init__(self):
         self._logger = EventTask.get_logger(type(self).__name__)
-        self.status = "INIT"
+        self.status = EventTaskStatus.INITIALIZED
         self._callbacks = []
         self.__class__.get_pending_tasks().append(self)
 
@@ -86,7 +87,15 @@ class EventTask(ABC):
     def is_scheduled(self) -> bool:
         """returns a boolean indicating whether this task has been
         scheduled for execution"""
-        return self.status != "INIT"
+        return self.status > EventTaskStatus.INITIALIZED
+
+    def is_cancelled(self) -> bool:
+        """returns a boolean indicating whether this task has been cancelled"""
+        return self.status == EventTaskStatus.CANCELLED
+
+    def is_waiting(self):
+        """returns a boolean indicating whether this is an active task that has not begun execution"""
+        return self.status in [EventTaskStatus.INITIALIZED, EventTaskStatus.WAITING]
 
     def attach_callback(self, func):
         """Attaches a callback function to be called upon task completion.
@@ -97,3 +106,15 @@ class EventTask(ABC):
             raise ValueError("callback must not be a coroutine")
 
         self._callbacks.append(func)
+
+class EventTaskStatus(IntEnum):
+    """enumeration of valid event task states"""
+    CANCELLED = -1
+    INITIALIZED = 1
+    WAITING = 2
+    EXEC_QUEUED = 3
+    EXEC = 4
+    DONE = 9999
+
+    def __str__(self) -> str:
+        return self.name

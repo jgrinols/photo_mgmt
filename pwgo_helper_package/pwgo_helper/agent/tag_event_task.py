@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 
 from .autotagger import AutoTagger
-from .event_task import EventTask
+from .event_task import EventTask, EventTaskStatus
 from .database_event_row import TagEventRow
 
 class TagEventTask(EventTask):
@@ -38,13 +38,13 @@ class TagEventTask(EventTask):
         """schedules execution of the tag event handler on the event loop"""
         if not self.is_scheduled():
             self._tag_task = asyncio.create_task(self._handle_tag_event())
-            self.status = "EXEC_QUEUED"
+            self.status = EventTaskStatus.EXEC_QUEUED
 
     async def _handle_tag_event(self):
-        self.status = "EXEC"
+        self.status = EventTaskStatus.EXEC
         action = self._get_action()
         await action[0](*action[1])
-        self.status = "DONE"
+        self.status = EventTaskStatus.DONE
 
     def _get_action(self):
         return (AutoTagger.process_new_tag, [self.tag_id])
