@@ -1,5 +1,5 @@
 """container module for TestImageVirtualPathEventTask"""
-import tempfile, os.path
+import tempfile, os.path, json
 from unittest.mock import patch
 
 from path import Path
@@ -8,6 +8,7 @@ import pytest
 from ...agent.config import Configuration as AgentConfig
 from ...config import Configuration as ProgramConfig
 from ...agent.image_virtual_path_event_task import ImageVirtualPathEventTask
+from .conftest import TestDbResult
 
 class TestImageVirtualPathEventTask:
     """Tests for the TestImageVirtualPathEventTask class"""
@@ -59,15 +60,20 @@ class TestImageVirtualPathEventTask:
 
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
-    @patch.object(ProgramConfig, "get")
-    async def test_rebuild_fs(self, m_get_pcfg, m_get_acfg, test_db, db_cfg):
+    async def test_rebuild_fs(self, m_get_acfg, test_db: TestDbResult):
         """tests the proper functioning of the rebuild functionality"""
         m_get_acfg.return_value = AgentConfig()
         m_get_acfg.return_value.virtualfs_remove_empty_dirs = True
         m_get_acfg.return_value.virtualfs_allow_broken_links = True
         m_get_acfg.return_value.piwigo_galleries_host_path = "/tmp"
-        m_get_pcfg.return_value = ProgramConfig()
-        m_get_pcfg.return_value.db_config = db_cfg
+        pcfg_params = {
+            "db_conn_json": json.dumps(test_db.db_host),
+            "pwgo_db_name": test_db.piwigo_db,
+            "msg_db_name": test_db.messaging_db,
+            "rek_db_name": test_db.rekognition_db,
+            "dry_run": False
+        }
+        pcfg = ProgramConfig.initialize(**pcfg_params)
         with tempfile.TemporaryDirectory() as tmp_dir:
             m_get_acfg.return_value.virtualfs_root = tmp_dir
             tmp_dir_path = Path(tmp_dir)
@@ -87,7 +93,7 @@ class TestImageVirtualPathEventTask:
             assert not lvl2_path.exists()
             assert not lvl1_path.exists()
 
-            async with test_db.acquire_dict_cursor(db="piwigo") as (cur,_):
+            async with test_db.db_connection_pool.acquire_dict_cursor(db=pcfg.pwgo_db_name) as (cur,_):
                 sql = """
                     SELECT virtual_path FROM image_virtual_paths
                 """

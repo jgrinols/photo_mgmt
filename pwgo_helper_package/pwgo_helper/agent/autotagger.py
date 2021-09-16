@@ -52,9 +52,9 @@ class AutoTagger():
         self.logger.debug("beginning autotagging of %s", self.image.file)
         cfg = ProgramConfig.get()
         async with DbConnectionPool.get().acquire_dict_cursor(db=cfg.pwgo_db_name) as (cur,_):
-            sql = """
+            sql = f"""
                 SELECT 1
-                FROM piwigo.image_category
+                FROM {cfg.pwgo_db_name}.image_category
                 WHERE image_id = %s AND category_id = %s
             """
             await cur.execute(sql, (self.image.id, AgentConfig.get().auto_tag_proc_alb))
@@ -138,8 +138,9 @@ class AutoTagger():
     async def add_indexed_image(self, index_cat_id):
         """adds the current image to the Rekognition face index"""
         self.logger.info(strings.LOG_ADD_IMG_FACES(self.image.file))
+        pcfg = ProgramConfig.get()
 
-        if not ProgramConfig.get().dry_run:
+        if not pcfg.dry_run:
             with self.image.open_file() as img_file:
                 client = await self._get_rek_client()
                 faces = await client.index_faces_from_image(
@@ -152,7 +153,7 @@ class AutoTagger():
                 VALUES ( '%s', '%s', %s, %s, %s, '%s')
             """
             if faces:
-                async with DbConnectionPool.get().acquire_dict_cursor(db=AgentConfig.get().rek_db_name) as (cur,conn):
+                async with DbConnectionPool.get().acquire_dict_cursor(db=pcfg.rek_db_name) as (cur,conn):
                     for frec in faces:
                         face = frec["Face"]
                         refs = face["ExternalImageId"].split(AutoTagger.EXT_REFS_SEP)
@@ -172,13 +173,14 @@ class AutoTagger():
         """gets the location of faces detected in the image from Rekognition
         and generates cropped images for those locations"""
         self.logger.debug(strings.LOG_DETECT_IMG_FACES(self.image.file))
+        pcfg = ProgramConfig.get()
         results = []
         db_cn_ctx = DbConnectionPool.get()
-        if not ProgramConfig.get().dry_run:
-            async with db_cn_ctx.acquire_dict_cursor(db=AgentConfig.get().rek_db_name) as (cur,conn):
-                sql = """
+        if not pcfg.dry_run:
+            async with db_cn_ctx.acquire_dict_cursor(db=pcfg.rek_db_name) as (cur,conn):
+                sql = f"""
                     SELECT face_details
-                    FROM rekognition.processed_faces
+                    FROM {pcfg.rek_db_name}.processed_faces
                     WHERE piwigo_image_id = %s
                 """
 
@@ -227,13 +229,14 @@ class AutoTagger():
     async def _get_matched_face(self, img, index: int) -> Optional[Dict]:
         """gets the top ranked matched face (or None) for the given image"""
         self.logger.debug("attempting to match face in image")
+        pcfg = ProgramConfig.get()
         result = None
-        if not ProgramConfig.get().dry_run:
+        if not pcfg.dry_run:
             client = await self._get_rek_client()
             result = await client.match_face_from_image(img)
 
         if result and "Face" in result:
-            async with DbConnectionPool.get().acquire_dict_cursor(db=AgentConfig.get().rek_db_name) as (cur,conn):
+            async with DbConnectionPool.get().acquire_dict_cursor(db=pcfg.rek_db_name) as (cur,conn):
                 sql = """
                     UPDATE processed_faces SET matched_to_face_id = '%s'
                     WHERE piwigo_image_id = %s AND face_index = %s
@@ -254,14 +257,15 @@ class AutoTagger():
         return await AutoTagger._get_tag_ids_for_labels(labels)
 
     async def _fetch_image_labels(self):
+        pcfg = ProgramConfig.get()
         labels = []
         existing = False
-        if not ProgramConfig.get().dry_run:
+        if not pcfg.dry_run:
             db_cn_ctx = DbConnectionPool.get()
-            async with db_cn_ctx.acquire_dict_cursor(db=AgentConfig.get().rek_db_name) as (cur,conn):
-                sql = """
+            async with db_cn_ctx.acquire_dict_cursor(db=pcfg.rek_db_name) as (cur,conn):
+                sql = f"""
                     SELECT label
-                    FROM rekognition.image_labels
+                    FROM {pcfg.rek_db_name}.image_labels
                     WHERE piwigo_image_id = %s and confidence >= %s
                 """
 
@@ -320,17 +324,17 @@ class AutoTagger():
     async def remove_indexed_faces(cls, face_ids):
         """removes a face from the Rekognition face index"""
         cls.get_logger().info("Removing %s faces from face index", len(face_ids))
-
-        if not ProgramConfig.get().dry_run:
+        pcfg = ProgramConfig.get()
+        if not pcfg.dry_run:
             async with AsyncExitStack() as stack:
                 db_cn_ctx = DbConnectionPool.get()
-                cur,conn = await stack.enter_async_context(db_cn_ctx.acquire_dict_cursor(db=AgentConfig.get().rek_db_name))
+                cur,conn = await stack.enter_async_context(db_cn_ctx.acquire_dict_cursor(db=pcfg.rek_db_name))
                 rek_client = await stack.enter_async_context(RekognitionClient())
 
                 faces = await rek_client.remove_indexed_faces(face_ids)
 
-                sql = """
-                    DELETE FROM rekognition.indexed_faces
+                sql = f"""
+                    DELETE FROM {pcfg.rek_db_name}.indexed_faces
                     WHERE face_id IN (%s)
                 """
                 fmt_strings = ','.join(['%s'] * len(face_ids))
@@ -347,7 +351,8 @@ class AutoTagger():
         cls.get_logger().info("beginning face index sync")
         cls.get_logger().debug("getting list of currently indexed images")
         existing = {}
-        if not ProgramConfig.get().dry_run:
+        pcfg = ProgramConfig.get()
+        if not pcfg.dry_run:
             async with RekognitionClient() as rek_client:
                 for face in await rek_client.get_indexed_faces():
                     pwgo_image_id = face["ExternalImageId"].split(AutoTagger.EXT_REFS_SEP)[1]
@@ -357,16 +362,16 @@ class AutoTagger():
                         existing[pwgo_image_id] = [face["FaceId"]]
 
         cls.get_logger().info("pulling the expected face index collection from db")
-        async with DbConnectionPool.get().acquire_dict_cursor(db=ProgramConfig.get().pwgo_db_name) as (cur,_):
-            sql = """
+        async with DbConnectionPool.get().acquire_dict_cursor(db=pcfg.pwgo_db_name) as (cur,_):
+            sql = f"""
                 SELECT i.id image_id
                     , c.id category_id
                     , i.file
                     , i.`path`
-                FROM piwigo.images i
-                JOIN piwigo.image_category ic
+                FROM {pcfg.pwgo_db_name}.images i
+                JOIN {pcfg.pwgo_db_name}.image_category ic
                 ON ic.image_id = i.id
-                JOIN piwigo.categories c
+                JOIN {pcfg.pwgo_db_name}.categories c
                 ON c.id = ic.category_id
                 WHERE c.id IN (%s)
             """
@@ -404,14 +409,15 @@ class AutoTagger():
         """Checks if the new tag associated with the given id should be added to any
         previously autotagged images"""
         cls.get_logger().debug("checking if new tag needs to be applied to any existing autotagged images")
+        pcfg = ProgramConfig.get()
 
         async with AsyncExitStack() as stack:
             db_cn_ctx = DbConnectionPool.get()
-            cur,_ = await stack.enter_async_context(db_cn_ctx.acquire_dict_cursor(db=AgentConfig.get().rek_db_name))
-            sql = """
+            cur,_ = await stack.enter_async_context(db_cn_ctx.acquire_dict_cursor(db=pcfg.rek_db_name))
+            sql = f"""
                 SELECT il.piwigo_image_id
                 FROM image_labels il
-                JOIN piwigo.tags t
+                JOIN {pcfg.pwgo_db_name}.tags t
                 ON t.name = il.label
                 WHERE t.id = %s AND il.confidence >= %s
             """

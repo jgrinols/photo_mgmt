@@ -132,6 +132,7 @@ class ImageMetadataEventTask(EventTask):
         if self._sleep_futures:
             self._sleep_futures[-1].remove_done_callback(self._schedule_action_task)
         self.status = EventTaskStatus.CANCELLED
+        ImageMetadataEventTask._pending_tasks.remove(self)
 
     def _reset_delay(self, **kwargs):
         """Resets the amount of time the task is to wait before proceeding to given number of seconds"""

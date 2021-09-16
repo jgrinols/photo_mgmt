@@ -24,7 +24,7 @@ class Configuration:
         return Configuration.instance
 
     @staticmethod
-    def initialize(**kwargs):
+    def initialize(**kwargs) -> Configuration:
         """initializes the Configuration singleton"""
         cfg = Configuration()
         cfg.initialization_args = kwargs
@@ -36,9 +36,12 @@ class Configuration:
                 pwgo_logging.set_lib_log_level(val)
             if hasattr(cfg, key):
                 setattr(cfg, key, val)
+        # reinitialize the db scripts in case we're using non default db names
+        cfg.piwigo_db_scripts = PiwigoScripts(cfg.pwgo_db_name, cfg.msg_db_name)
+        cfg.rekognition_db_scripts = RekognitionScripts(cfg.rek_db_name)
         # log init parameters in a separate loop so that we're logging with
         # the configured verbosity
-        click_ctx = click.get_current_context()
+        click_ctx = click.get_current_context(silent=True)
         # only log init parameters if we have a click context
         # so we don't risk logging sensitive data
         for key,val in kwargs.items():
@@ -52,12 +55,15 @@ class Configuration:
             cfg.get_logger(__name__).debug(strings.LOG_PRG_OPT(key,show_val))
 
         Configuration.instance = cfg
+        return cfg
 
     def __init__(self):
         self.dry_run = False
         self.initialization_args = None
         self.db_config = None
         self.pwgo_db_name = "piwigo"
+        self.msg_db_name = "messaging"
+        self.rek_db_name = "rekognition"
         self.piwigo_db_scripts = PiwigoScripts()
         self.rekognition_db_scripts = RekognitionScripts()
 
@@ -67,9 +73,9 @@ class Configuration:
 
 class PiwigoScripts:
     """container class for piwigo db setup scripts"""
-    def __init__(self):
-        self.create_category_paths = """
-            CREATE OR REPLACE VIEW piwigo.category_paths
+    def __init__(self, pwgo_db_name="piwigo", msg_db_name="messaging"):
+        self.create_category_paths = f"""
+            CREATE OR REPLACE VIEW {pwgo_db_name}.category_paths
             AS
             WITH RECURSIVE cat_paths AS
             (
@@ -77,7 +83,7 @@ class PiwigoScripts:
                             , 1 AS pos
                             , CAST(uppercats AS VARCHAR(100)) AS cats
                             , CAST(SUBSTRING_INDEX(uppercats, ',', 1) AS VARCHAR(100)) AS first_cat
-                    FROM piwigo.categories
+                    FROM {pwgo_db_name}.categories
                     UNION ALL
                     SELECT id
                             , pos + 1 AS pos
@@ -89,38 +95,38 @@ class PiwigoScripts:
             SELECT cp.id cat_id
                     , CAST(CONCAT('./', GROUP_CONCAT(c.name ORDER BY cp.pos SEPARATOR'/')) AS VARCHAR(255)) cpath
             FROM cat_paths cp
-            JOIN piwigo.categories c
+            JOIN {pwgo_db_name}.categories c
             ON c.id = CAST(cp.first_cat AS INT)
             GROUP BY cp.id;
         """
 
-        self.create_image_category_triggers = """
+        self.create_image_category_triggers = f"""
             DELIMITER $$
-            CREATE OR REPLACE TRIGGER piwigo.tr_ins_aft_imagecategory
-            AFTER INSERT ON piwigo.image_category
+            CREATE OR REPLACE TRIGGER {pwgo_db_name}.tr_ins_aft_imagecategory
+            AFTER INSERT ON {pwgo_db_name}.image_category
             FOR EACH ROW
             BEGIN
-                    INSERT INTO piwigo.image_virtual_paths
+                    INSERT INTO {pwgo_db_name}.image_virtual_paths
                     (image_id, category_id, category_uppercats, physical_path, virtual_path)
                     SELECT new.image_id
                             , new.category_id
                             , c.uppercats
                             , CONCAT(pcp.cpath, '/', i.file)
                             , CONCAT(vcp.cpath, '/', i.id, '_', i.file)
-                    FROM piwigo.image_category ic
-                    JOIN piwigo.images i
+                    FROM {pwgo_db_name}.image_category ic
+                    JOIN {pwgo_db_name}.images i
                     ON i.id = ic.image_id
-                    JOIN piwigo.categories c
+                    JOIN {pwgo_db_name}.categories c
                     ON c.id = ic.category_id
-                    JOIN piwigo.category_paths pcp
+                    JOIN {pwgo_db_name}.category_paths pcp
                     ON pcp.cat_id = i.storage_category_id
-                    JOIN piwigo.category_paths vcp
+                    JOIN {pwgo_db_name}.category_paths vcp
                     ON vcp.cat_id = ic.category_id
                     WHERE c.dir IS NULL
                             AND ic.image_id = new.image_id
                             AND ic.category_id = new.category_id;
 
-                    INSERT INTO messaging.pwgo_message (message_type, `message`)
+                    INSERT INTO {msg_db_name}.pwgo_message (message_type, `message`)
                     VALUES ('IMG_METADATA' , JSON_OBJECT(
                             'image_id', new.image_id
                             , 'table_name', 'image_category'
@@ -131,16 +137,16 @@ class PiwigoScripts:
             END;
             $$
 
-            CREATE OR REPLACE TRIGGER piwigo.tr_aft_del_imagecategory
-            AFTER DELETE ON piwigo.image_category
+            CREATE OR REPLACE TRIGGER {pwgo_db_name}.tr_aft_del_imagecategory
+            AFTER DELETE ON {pwgo_db_name}.image_category
             FOR EACH ROW
             BEGIN
                     DELETE
-                    FROM piwigo.image_virtual_paths
+                    FROM {pwgo_db_name}.image_virtual_paths
                     WHERE image_id = old.image_id
                             AND category_id = old.category_id;
 
-                    INSERT INTO messaging.pwgo_message (message_type, `message`)
+                    INSERT INTO {msg_db_name}.pwgo_message (message_type, `message`)
                     VALUES ('IMG_METADATA' , JSON_OBJECT(
                             'image_id', old.image_id
                             , 'table_name', 'image_category'
@@ -154,8 +160,8 @@ class PiwigoScripts:
             DELIMITER ;
         """
 
-        self.create_image_metadata = """
-            CREATE OR REPLACE VIEW piwigo.image_metadata
+        self.create_image_metadata = f"""
+            CREATE OR REPLACE VIEW {pwgo_db_name}.image_metadata
             AS
             SELECT i.id
                 , JSON_OBJECT(
@@ -166,21 +172,21 @@ class PiwigoScripts:
                     , 'date_creation', i.date_creation
                     , 'tags', JSON_QUERY(IF(COUNT(t.id)>0,JSON_ARRAYAGG(t.name),JSON_ARRAY()), '$')
                 ) image_metadata
-            FROM piwigo.images i
-            LEFT JOIN piwigo.image_tag it
+            FROM {pwgo_db_name}.images i
+            LEFT JOIN {pwgo_db_name}.image_tag it
             ON it.image_id = i.id
-            LEFT JOIN piwigo.tags t
+            LEFT JOIN {pwgo_db_name}.tags t
             ON t.id = it.tag_id
             GROUP BY i.id;
         """
 
-        self.create_image_tag_triggers = """
+        self.create_image_tag_triggers = f"""
             DELIMITER $$
-            CREATE OR REPLACE TRIGGER piwigo.tr_ins_aft_imagetag
-            AFTER INSERT ON piwigo.image_tag
+            CREATE OR REPLACE TRIGGER {pwgo_db_name}.tr_ins_aft_imagetag
+            AFTER INSERT ON {pwgo_db_name}.image_tag
             FOR EACH ROW
             BEGIN
-                    INSERT INTO messaging.pwgo_message (message_type, `message`)
+                    INSERT INTO {msg_db_name}.pwgo_message (message_type, `message`)
                     VALUES ('IMG_METADATA' , JSON_OBJECT(
                             'image_id', new.image_id
                             , 'table_name', 'image_tag'
@@ -191,11 +197,11 @@ class PiwigoScripts:
             END;
             $$
 
-            CREATE OR REPLACE TRIGGER piwigo.tr_aft_del_imagetag
-            AFTER DELETE ON piwigo.image_tag
+            CREATE OR REPLACE TRIGGER {pwgo_db_name}.tr_aft_del_imagetag
+            AFTER DELETE ON {pwgo_db_name}.image_tag
             FOR EACH ROW
             BEGIN
-                    INSERT INTO messaging.pwgo_message (message_type, `message`)
+                    INSERT INTO {msg_db_name}.pwgo_message (message_type, `message`)
                     VALUES ('IMG_METADATA' , JSON_OBJECT(
                             'image_id', old.image_id
                             , 'table_name', 'image_tag'
@@ -209,10 +215,10 @@ class PiwigoScripts:
             DELIMITER ;
         """
 
-        self.create_image_virtual_paths = """
-            DROP TABLE IF EXISTS piwigo.image_virtual_paths;
+        self.create_image_virtual_paths = f"""
+            DROP TABLE IF EXISTS {pwgo_db_name}.image_virtual_paths;
 
-            CREATE TABLE piwigo.image_virtual_paths
+            CREATE TABLE {pwgo_db_name}.image_virtual_paths
             (
                     image_id MEDIUMINT(8) UNSIGNED NOT NULL,
                     category_id SMALLINT(5) UNSIGNED NOT NULL,
@@ -222,31 +228,31 @@ class PiwigoScripts:
                     PRIMARY KEY (image_id, category_id)
             );
 
-            INSERT INTO piwigo.image_virtual_paths
+            INSERT INTO {pwgo_db_name}.image_virtual_paths
             (image_id, category_id, category_uppercats, physical_path, virtual_path)
             SELECT ic.image_id
                     , ic.category_id
                     , c.uppercats
                     , CONCAT(pcp.cpath, '/', i.file)
                     , CONCAT(vcp.cpath, '/', i.id, '_', i.file)
-            FROM piwigo.image_category ic
-            JOIN piwigo.images i
+            FROM {pwgo_db_name}.image_category ic
+            JOIN {pwgo_db_name}.images i
             ON i.id = ic.image_id
-            JOIN piwigo.categories c
+            JOIN {pwgo_db_name}.categories c
             ON c.id = ic.category_id
-            JOIN piwigo.category_paths pcp
+            JOIN {pwgo_db_name}.category_paths pcp
             ON pcp.cat_id = i.storage_category_id
-            JOIN piwigo.category_paths vcp
+            JOIN {pwgo_db_name}.category_paths vcp
             ON vcp.cat_id = ic.category_id
             WHERE c.dir IS NULL;
 
             DELIMITER $$
-            CREATE OR REPLACE TRIGGER piwigo.tr_ins_aft_img_virt_paths
-            AFTER INSERT ON piwigo.image_virtual_paths
+            CREATE OR REPLACE TRIGGER {pwgo_db_name}.tr_ins_aft_img_virt_paths
+            AFTER INSERT ON {pwgo_db_name}.image_virtual_paths
             FOR EACH ROW
             BEGIN
                 
-                INSERT INTO messaging.pwgo_message (message_type, `message`)
+                INSERT INTO {msg_db_name}.pwgo_message (message_type, `message`)
                 VALUES ('IMG_VIRT_PATH' , JSON_OBJECT(
                         'image_id', new.image_id
                         , 'table_name', 'image_virtual_paths'
@@ -261,12 +267,12 @@ class PiwigoScripts:
             $$
 
 
-            CREATE OR REPLACE TRIGGER piwigo.tr_del_aft_img_virt_paths
-            AFTER DELETE ON piwigo.image_virtual_paths
+            CREATE OR REPLACE TRIGGER {pwgo_db_name}.tr_del_aft_img_virt_paths
+            AFTER DELETE ON {pwgo_db_name}.image_virtual_paths
             FOR EACH ROW
             BEGIN
                     
-                INSERT INTO messaging.pwgo_message (message_type, `message`)
+                INSERT INTO {msg_db_name}.pwgo_message (message_type, `message`)
                 VALUES ('IMG_VIRT_PATH' , JSON_OBJECT(
                         'image_id', old.image_id
                         , 'table_name', 'image_virtual_paths'
@@ -282,14 +288,14 @@ class PiwigoScripts:
             DELIMITER ;
         """
 
-        self.create_images_triggers = """
+        self.create_images_triggers = f"""
             DELIMITER $$
-            CREATE OR REPLACE TRIGGER piwigo.tr_ins_aft_images
-            AFTER INSERT ON piwigo.images
+            CREATE OR REPLACE TRIGGER {pwgo_db_name}.tr_ins_aft_images
+            AFTER INSERT ON {pwgo_db_name}.images
             FOR EACH ROW
             BEGIN
                 
-                INSERT INTO messaging.pwgo_message (message_type, `message`)
+                INSERT INTO {msg_db_name}.pwgo_message (message_type, `message`)
                 VALUES ('IMG_METADATA' , JSON_OBJECT(
                         'image_id', new.id
                         , 'table_name', 'images'
@@ -301,13 +307,13 @@ class PiwigoScripts:
             $$
 
             DELIMITER $$
-            CREATE OR REPLACE TRIGGER piwigo.tr_upd_aft_images
-            AFTER UPDATE ON piwigo.images
+            CREATE OR REPLACE TRIGGER {pwgo_db_name}.tr_upd_aft_images
+            AFTER UPDATE ON {pwgo_db_name}.images
             FOR EACH ROW
             BEGIN
                 
                 IF (new.name != old.name OR new.comment != old.comment OR new.author != old.author OR new.date_creation != old.date_creation) THEN
-                    INSERT INTO messaging.pwgo_message (message_type, `message`)
+                    INSERT INTO {msg_db_name}.pwgo_message (message_type, `message`)
                     VALUES ('IMG_METADATA' , JSON_OBJECT(
                             'image_id', new.id
                             , 'table_name', 'images'
@@ -330,12 +336,12 @@ class PiwigoScripts:
             END;
             $$
 
-            CREATE OR REPLACE TRIGGER piwigo.tr_del_aft_images
-            AFTER DELETE ON piwigo.images
+            CREATE OR REPLACE TRIGGER {pwgo_db_name}.tr_del_aft_images
+            AFTER DELETE ON {pwgo_db_name}.images
             FOR EACH ROW
             BEGIN
                     
-                INSERT INTO messaging.pwgo_message (message_type, `message`)
+                INSERT INTO {msg_db_name}.pwgo_message (message_type, `message`)
                 VALUES ('IMG_METADATA' , JSON_OBJECT(
                         'image_id', old.id
                         , 'table_name', 'images'
@@ -348,17 +354,17 @@ class PiwigoScripts:
             DELIMITER ;
         """
 
-        self.create_implicit_tags = """
-            DROP TABLE IF EXISTS piwigo.implicit_tags;
+        self.create_implicit_tags = f"""
+            DROP TABLE IF EXISTS {pwgo_db_name}.implicit_tags;
 
-            CREATE TABLE piwigo.implicit_tags
+            CREATE TABLE {pwgo_db_name}.implicit_tags
             (
                 implied_tag_id SMALLINT NOT NULL,
                 triggered_by_tag_id SMALLINT NOT NULL,
                 PRIMARY KEY (implied_tag_id, triggered_by_tag_id)
             );
 
-            CREATE OR REPLACE VIEW piwigo.expanded_implicit_tags
+            CREATE OR REPLACE VIEW {pwgo_db_name}.expanded_implicit_tags
             AS
             WITH RECURSIVE expanded_imp_tags AS
             (
@@ -366,14 +372,14 @@ class PiwigoScripts:
                     , triggered_by_tag_id
                     , triggered_by_tag_id AS org_triggered_by_tag_id
                     , 1 AS rnk
-                FROM piwigo.implicit_tags it
+                FROM {pwgo_db_name}.implicit_tags it
                 UNION ALL
                 SELECT it2.implied_tag_id
                     , it2.triggered_by_tag_id
                     , eit.org_triggered_by_tag_id
                     , rnk + 1 AS rnk
                 FROM expanded_imp_tags eit
-                JOIN piwigo.implicit_tags it2
+                JOIN {pwgo_db_name}.implicit_tags it2
                 ON it2.triggered_by_tag_id = eit.implied_tag_id	
             ), ranked AS 
             (
@@ -388,21 +394,21 @@ class PiwigoScripts:
             FROM ranked
             WHERE irnk = 1;
 
-            SELECT @family := id FROM piwigo.tags WHERE `name` = 'family';
-            SELECT @kids := id FROM piwigo.tags WHERE `name` = 'kids';
-            SELECT @henry := id FROM piwigo.tags WHERE `name` = 'henry';
-            SELECT @hannah := id FROM piwigo.tags WHERE `name` = 'hannah';
-            SELECT @chelsea := id FROM piwigo.tags WHERE `name` = 'chelsea';
-            SELECT @justin := id FROM piwigo.tags WHERE `name` = 'justin';
-            SELECT @kitty := id FROM piwigo.tags WHERE `name` = 'kitty';
-            SELECT @holidays := id FROM piwigo.tags WHERE `name` = 'holidays';
-            SELECT @christmas := id FROM piwigo.tags WHERE `name` = 'christmas';
-            SELECT @thanksgiving := id FROM piwigo.tags WHERE `name` = 'thanksgiving';
-            SELECT @halloween := id FROM piwigo.tags WHERE `name` = 'halloween';
+            SELECT @family := id FROM {pwgo_db_name}.tags WHERE `name` = 'family';
+            SELECT @kids := id FROM {pwgo_db_name}.tags WHERE `name` = 'kids';
+            SELECT @henry := id FROM {pwgo_db_name}.tags WHERE `name` = 'henry';
+            SELECT @hannah := id FROM {pwgo_db_name}.tags WHERE `name` = 'hannah';
+            SELECT @chelsea := id FROM {pwgo_db_name}.tags WHERE `name` = 'chelsea';
+            SELECT @justin := id FROM {pwgo_db_name}.tags WHERE `name` = 'justin';
+            SELECT @kitty := id FROM {pwgo_db_name}.tags WHERE `name` = 'kitty';
+            SELECT @holidays := id FROM {pwgo_db_name}.tags WHERE `name` = 'holidays';
+            SELECT @christmas := id FROM {pwgo_db_name}.tags WHERE `name` = 'christmas';
+            SELECT @thanksgiving := id FROM {pwgo_db_name}.tags WHERE `name` = 'thanksgiving';
+            SELECT @halloween := id FROM {pwgo_db_name}.tags WHERE `name` = 'halloween';
 
-            TRUNCATE TABLE piwigo.implicit_tags;
+            TRUNCATE TABLE {pwgo_db_name}.implicit_tags;
 
-            INSERT INTO piwigo.implicit_tags ( implied_tag_id, triggered_by_tag_id )
+            INSERT INTO {pwgo_db_name}.implicit_tags ( implied_tag_id, triggered_by_tag_id )
             VALUES
             ( @kids, @hannah ),
             ( @kids, @henry ),
@@ -415,18 +421,18 @@ class PiwigoScripts:
             ( @holidays, @halloween )
             ;
 
-            INSERT INTO piwigo.image_tag ( image_id, tag_id )
+            INSERT INTO {pwgo_db_name}.image_tag ( image_id, tag_id )
             SELECT DISTINCT it.image_id, imp.implied_tag_id 
-            FROM piwigo.image_tag it
-            JOIN piwigo.expanded_implicit_tags imp
+            FROM {pwgo_db_name}.image_tag it
+            JOIN {pwgo_db_name}.expanded_implicit_tags imp
             ON imp.triggered_by_tag_id = it.tag_id
-            LEFT JOIN piwigo.image_tag it2
+            LEFT JOIN {pwgo_db_name}.image_tag it2
             ON it2.image_id = it.image_id AND it2.tag_id = imp.implied_tag_id
             WHERE it2.image_id IS NULL;
         """
 
-        self.create_pwgo_message = """
-            CREATE TABLE IF NOT EXISTS messaging.pwgo_message
+        self.create_pwgo_message = f"""
+            CREATE TABLE IF NOT EXISTS {msg_db_name}.pwgo_message
             (
                 id INT(11) UNSIGNED AUTO_INCREMENT,
                 message_timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
@@ -436,14 +442,14 @@ class PiwigoScripts:
             );
         """
 
-        self.create_tags_triggers = """
+        self.create_tags_triggers = f"""
             DELIMITER $$
-            CREATE OR REPLACE TRIGGER piwigo.tr_ins_aft_tags
-            AFTER INSERT ON piwigo.tags
+            CREATE OR REPLACE TRIGGER {pwgo_db_name}.tr_ins_aft_tags
+            AFTER INSERT ON {pwgo_db_name}.tags
             FOR EACH ROW
             BEGIN
                 
-                INSERT INTO messaging.pwgo_message (message_type, `message`)
+                INSERT INTO {msg_db_name}.pwgo_message (message_type, `message`)
                 VALUES ('TAGS' , JSON_OBJECT(
                         'tag_id', new.id
                         , 'table_name', 'tags'
@@ -454,13 +460,13 @@ class PiwigoScripts:
             END;
             $$
 
-            CREATE OR REPLACE TRIGGER piwigo.tr_upd_aft_tags
-            AFTER UPDATE ON piwigo.tags
+            CREATE OR REPLACE TRIGGER {pwgo_db_name}.tr_upd_aft_tags
+            AFTER UPDATE ON {pwgo_db_name}.tags
             FOR EACH ROW
             BEGIN
                 
                 IF new.name != old.name THEN
-                    INSERT INTO messaging.pwgo_message (message_type, `message`)
+                    INSERT INTO {msg_db_name}.pwgo_message (message_type, `message`)
                     VALUES ('TAGS' , JSON_OBJECT(
                             'tag_id', new.id
                             , 'table_name', 'tags'
@@ -477,12 +483,12 @@ class PiwigoScripts:
             END;
             $$
 
-            CREATE OR REPLACE TRIGGER piwigo.tr_del_aft_tags
-            AFTER DELETE ON piwigo.tags
+            CREATE OR REPLACE TRIGGER {pwgo_db_name}.tr_del_aft_tags
+            AFTER DELETE ON {pwgo_db_name}.tags
             FOR EACH ROW
             BEGIN
                     
-                INSERT INTO messaging.pwgo_message (message_type, `message`)
+                INSERT INTO {msg_db_name}.pwgo_message (message_type, `message`)
                 VALUES ('TAGS' , JSON_OBJECT(
                         'tag_id', old.id
                         , 'table_name', 'tags'
@@ -498,9 +504,9 @@ class PiwigoScripts:
 
 class RekognitionScripts:
     """container class for rekognition db setup scripts"""
-    def __init__(self):
-        self.create_image_labels = """
-            CREATE TABLE IF NOT EXISTS rekognition.image_labels
+    def __init__(self, rek_db_name="Rekognition"):
+        self.create_image_labels = f"""
+            CREATE TABLE IF NOT EXISTS {rek_db_name}.image_labels
             (
                 piwigo_image_id MEDIUMINT(8) NOT NULL,
                 label VARCHAR(50) NOT NULL,
@@ -510,8 +516,8 @@ class RekognitionScripts:
             );
         """
 
-        self.create_index_faces = """
-            CREATE TABLE IF NOT EXISTS rekognition.indexed_faces
+        self.create_index_faces = f"""
+            CREATE TABLE IF NOT EXISTS {rek_db_name}.indexed_faces
             (
                 face_id CHAR(36) NOT NULL,
                 image_id CHAR(36) NOT NULL,
@@ -524,18 +530,18 @@ class RekognitionScripts:
             );
         """
 
-        self.create_processed_faces = """
-            CREATE TABLE IF NOT EXISTS rekognition.processed_faces
+        self.create_processed_faces = f"""
+            CREATE TABLE IF NOT EXISTS {rek_db_name}.processed_faces
             (
                 piwigo_image_id MEDIUMINT(8) NOT NULL,
                 face_index TINYINT NOT NULL,
                 face_details JSON NOT NULL,
                 matched_to_face_id CHAR(36) NULL,
                 PRIMARY KEY (piwigo_image_id, face_index),
-                FOREIGN KEY (matched_to_face_id) REFERENCES rekognition.indexed_faces(face_id) ON DELETE SET NULL
+                FOREIGN KEY (matched_to_face_id) REFERENCES {rek_db_name}.indexed_faces(face_id) ON DELETE SET NULL
             );
         """
 
-        self.create_rekognition_db = """
-            CREATE DATABASE IF NOT EXISTS rekognition;
+        self.create_rekognition_db = f"""
+            CREATE DATABASE IF NOT EXISTS {rek_db_name};
         """

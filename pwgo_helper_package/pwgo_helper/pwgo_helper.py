@@ -39,6 +39,12 @@ def _load_environment(_ctx, _opt, val):
     "--pwgo-db-name",help="name of the piwigo database",type=str,required=False,default="piwigo"
 )
 @click.option(
+    "--msg-db-name",help="name of the messaging database",type=str,required=False,default="messaging"
+)
+@click.option(
+    "--rek-db-name",help="name of the rekognition database",type=str,required=False,default="rekognition"
+)
+@click.option(
     "--log-level",
     help="specifies the verbosity of the log output",
     type=click.Choice(["CRITICAL","ERROR","WARNING","INFO","DEBUG","NOTSET"]),

@@ -19,13 +19,11 @@ class Configuration():
         self.face_idx_albs = []
         self.min_tag_confidence = 90
         self.img_tag_wait_secs = 1
-        self.msg_db = "messaging"
         self.stop_timeout = 10
         self.scaled_img_max_size = (1024,1024)
 
         # set by initialization
         self.piwigo_galleries_host_path = None
-        self.rek_db_name = "rekognition"
         self.rek_cfg = None
         self.image_crop_save_path = None
         self.virtualfs_root = None
@@ -47,7 +45,7 @@ class Configuration():
         return Configuration.instance
 
     @staticmethod
-    async def initialize(**kwargs):
+    async def initialize(**kwargs) -> Configuration:
         """Initialize program configuration values"""
         cfg = Configuration()
         cfg.initialization_args = kwargs
@@ -66,12 +64,14 @@ class Configuration():
         # pylint: disable=protected-access
         await cfg._set_face_index_categories()
         Configuration.instance = cfg
+        return cfg
 
     async def _set_face_index_categories(self):
-        async with DbConnectionPool.get().acquire_dict_cursor(db=ProgramConfig.get().pwgo_db_name) as (cur, _):
-            sql = """
+        pcfg = ProgramConfig.get()
+        async with DbConnectionPool.get().acquire_dict_cursor(db=pcfg.pwgo_db_name) as (cur, _):
+            sql = f"""
                 SELECT c.id
-                FROM piwigo.categories c
+                FROM {pcfg.pwgo_db_name}.categories c
                 WHERE c.id_uppercat = %s
                     AND c.name NOT LIKE '%s'
             """

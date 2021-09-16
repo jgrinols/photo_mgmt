@@ -1,6 +1,6 @@
 """container module for TestPiwigoImageMetadata and TestPiwigoImage"""
 # pylint: disable=protected-access
-import datetime
+import datetime, json
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -8,6 +8,7 @@ import pytest
 from ...agent.pwgo_image import PiwigoImageMetadata,PiwigoImage
 from ...agent.config import Configuration as AgentConfig
 from ...config import Configuration as ProgramConfig
+from .conftest import TestDbResult
 
 class TestPiwigoImageMetadata:
     """tests for the PiwigoImageMetadata class"""
@@ -79,8 +80,7 @@ class TestPiwigoImage:
     """tests for the PiwigoImage class"""
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
-    @patch.object(ProgramConfig, "get")
-    async def test_create(self, m_get_pcfg, m_get_acfg, mck_dict_cursor, db_cfg):
+    async def test_create(self, m_get_acfg, mck_dict_cursor, test_db: TestDbResult):
         """basic functional test of create static method"""
         test_file = { "file": "test_file.JPG", "path": "/photos/test_file.JPG" }
         test_mdata = { "image_metadata": '''{
@@ -91,10 +91,15 @@ class TestPiwigoImage:
             "tags": ["tag1","tag2"]
         }'''}
         acfg = AgentConfig()
-        pcfg = ProgramConfig()
-        pcfg.db_config = db_cfg
+        pcfg_params = {
+            "db_conn_json": json.dumps(test_db.db_host),
+            "pwgo_db_name": test_db.piwigo_db,
+            "msg_db_name": test_db.messaging_db,
+            "rek_db_name": test_db.rekognition_db,
+            "dry_run": False
+        }
+        ProgramConfig.initialize(**pcfg_params)
         m_get_acfg.return_value = acfg
-        m_get_pcfg.return_value = pcfg
         mck_fetch = AsyncMock(side_effect=[test_file,test_mdata])
         mck_dict_cursor.fetchone = mck_fetch
         pwgo_img = await PiwigoImage.create(1, load_metadata=True)

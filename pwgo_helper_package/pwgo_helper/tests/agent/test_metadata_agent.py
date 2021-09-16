@@ -18,6 +18,7 @@ from ... import strings as ProgramStrings
 from ...agent.autotagger import AutoTagger
 from ...agent.image_virtual_path_event_task import ImageVirtualPathEventTask
 from ...agent.image_metadata_event_task import ImageMetadataEventTask
+from .conftest import TestDbResult
 
 MODULE_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -26,9 +27,8 @@ class TestMetadataAgent:
 
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
-    @patch.object(ProgramConfig, "get")
     @patch("pwgo_helper.agent.metadata_agent.AutoTagger")
-    async def test_unforced_stop(self, mck_atag, m_get_pcfg, m_get_acfg, test_db, db_cfg):
+    async def test_unforced_stop(self, mck_atag, m_get_acfg, test_db: TestDbResult):
         """tests proper handling unforced stopping of agent. queue should be cleared before the agent stops.
         this is behavior for sigquit"""
         async def mck_sync_face_idx():
@@ -39,23 +39,27 @@ class TestMetadataAgent:
         mck_atag.sync_face_index = mck_sync_face_idx
         acfg = AgentConfig()
         acfg.workers = 2
-        pcfg = ProgramConfig()
-        pcfg.db_config = db_cfg
+        pcfg_params = {
+            "db_conn_json": json.dumps(test_db.db_host),
+            "pwgo_db_name": test_db.piwigo_db,
+            "msg_db_name": test_db.messaging_db,
+            "rek_db_name": test_db.rekognition_db
+        }
+        ProgramConfig.initialize(**pcfg_params)
         m_get_acfg.return_value = acfg
-        m_get_pcfg.return_value = pcfg
         with tempfile.TemporaryDirectory() as tmp_dir:
             vfs_root_path = Path(tmp_dir).joinpath("vfs")
             vfs_root_path.mkdir()
             m_get_acfg.return_value.virtualfs_root = str(vfs_root_path)
             m_get_acfg.return_value.piwigo_galleries_host_path = tmp_dir
-            with patch("builtins.open", mock_open(read_data=json.dumps(db_cfg))):
+            with patch("builtins.open", mock_open(read_data=json.dumps(test_db.db_host))):
                 agent = MetadataAgent(logging.getLogger(__name__))
             with patch.object(agent, "process_autotag_backlog"):
                 await agent.start()
 
             proc_evt_tgt = "pwgo_helper.agent.event_dispatcher.EventDispatcher.process_event"
             with patch(proc_evt_tgt, wraps=proc_evt) as mck_proc_evt:
-                async with test_db.acquire_dict_cursor(db=ProgramConfig.get().pwgo_db_name) as (cur,conn):
+                async with test_db.db_connection_pool.acquire_dict_cursor(db=test_db.piwigo_db) as (cur,conn):
                     sql = """
                         INSERT INTO image_category (image_id, category_id)
                         VALUES (%s, %s)
@@ -74,9 +78,8 @@ class TestMetadataAgent:
 
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
-    @patch.object(ProgramConfig, "get")
     @patch("pwgo_helper.agent.metadata_agent.AutoTagger")
-    async def test_forced_stop(self, m_atag, m_get_pcfg, m_get_acfg, test_db, db_cfg):
+    async def test_forced_stop(self, m_atag, m_get_acfg, test_db: TestDbResult):
         """tests proper handling forced stopping of agent. queue should NOT be cleared before the agent stops.
         this is behavior for sigterm and sigint"""
         proc_time = 2
@@ -88,23 +91,27 @@ class TestMetadataAgent:
         m_atag.sync_face_index = mck_sync_face_idx
         acfg = AgentConfig()
         acfg.workers = 2
-        pcfg = ProgramConfig()
-        pcfg.db_config = db_cfg
+        pcfg_params = {
+            "db_conn_json": json.dumps(test_db.db_host),
+            "pwgo_db_name": test_db.piwigo_db,
+            "msg_db_name": test_db.messaging_db,
+            "rek_db_name": test_db.rekognition_db
+        }
+        ProgramConfig.initialize(**pcfg_params)
         m_get_acfg.return_value = acfg
-        m_get_pcfg.return_value = pcfg
         with tempfile.TemporaryDirectory() as tmp_dir:
             vfs_root_path = Path(tmp_dir).joinpath("vfs")
             vfs_root_path.mkdir()
             m_get_acfg.return_value.virtualfs_root = str(vfs_root_path)
             m_get_acfg.return_value.piwigo_galleries_host_path = tmp_dir
-            with patch("builtins.open", mock_open(read_data=json.dumps(db_cfg))):
+            with patch("builtins.open", mock_open(read_data=json.dumps(test_db.db_host))):
                 agent = MetadataAgent(logging.getLogger(__name__))
             with patch.object(agent, "process_autotag_backlog"):
                 await agent.start()
 
             proc_evt_tgt = "pwgo_helper.agent.event_dispatcher.EventDispatcher.process_event"
             with patch(proc_evt_tgt, wraps=proc_evt) as mck_proc_evt:
-                async with test_db.acquire_dict_cursor(db=ProgramConfig.get().pwgo_db_name) as (cur,conn):
+                async with test_db.db_connection_pool.acquire_dict_cursor(db=test_db.piwigo_db) as (cur,conn):
                     sql = """
                         INSERT INTO image_category (image_id, category_id)
                         VALUES (%s, %s)
@@ -122,23 +129,26 @@ class TestMetadataAgent:
 
     @pytest.mark.asyncio
     @patch.object(AgentConfig, "get")
-    @patch.object(ProgramConfig, "get")
     @patch.object(AutoTagger, "sync_face_index")
     @patch.object(AutoTagger, "create")
-    async def test_autotag_backlog(self, m_atag_create, _, m_get_pcfg, m_get_acfg, test_db, db_cfg):
+    async def test_autotag_backlog(self, m_atag_create, _, m_get_acfg, test_db: TestDbResult):
         """test proper functioning of the processing of backlog items when agent starts"""
         mck_atagger = MagicMock(spec=AutoTagger)
         m_atag_create.return_value.__aenter__.return_value = mck_atagger
         acfg = AgentConfig()
         acfg.workers = 2
-        pcfg = ProgramConfig()
-        pcfg.db_config = db_cfg
+        pcfg_params = {
+            "db_conn_json": json.dumps(test_db.db_host),
+            "pwgo_db_name": test_db.piwigo_db,
+            "msg_db_name": test_db.messaging_db,
+            "rek_db_name": test_db.rekognition_db
+        }
+        ProgramConfig.initialize(**pcfg_params)
         m_get_acfg.return_value = acfg
-        m_get_pcfg.return_value = pcfg
-        with patch("builtins.open", mock_open(read_data=json.dumps(db_cfg))):
+        with patch("builtins.open", mock_open(read_data=json.dumps(test_db.db_host))):
             agent = MetadataAgent(logging.getLogger(__name__))
 
-        async with test_db.acquire_dict_cursor(db=ProgramConfig.get().pwgo_db_name) as (cur,conn):
+        async with test_db.db_connection_pool.acquire_dict_cursor(db=test_db.piwigo_db) as (cur,conn):
             sql = """
                 INSERT INTO image_category (image_id, category_id)
                 VALUES (%s, %s)
@@ -157,7 +167,7 @@ class TestMetadataAgent:
         assert mck_atagger.autotag_image.await_count == len(ids)
 
     @pytest.mark.asyncio
-    async def test_out_of_process(self, capfd, test_db, db_cfg):
+    async def test_out_of_process(self, capfd, test_db: TestDbResult):
         """runs the metadata agent in a new process, inserts records into database,
         and verifies proper handling"""
         face_idx_images = [
@@ -165,7 +175,7 @@ class TestMetadataAgent:
             "IMG_0042.JPG","IMG_0575.JPG","IMG_0632.JPG","IMG_0299.JPG","IMG_0133.JPG"
         ]
         atag_bload_images = [185,199]
-        async with test_db.acquire_dict_cursor(db="piwigo") as (cur,conn):
+        async with test_db.db_connection_pool.acquire_dict_cursor(db=test_db.piwigo_db) as (cur,conn):
             sql = """
                 INSERT INTO image_category (image_id, category_id)
                 VALUES (%s, %s)
@@ -193,7 +203,13 @@ class TestMetadataAgent:
                 "ERROR",
                 "--dry-run",
                 "--db-conn-json",
-                json.dumps(db_cfg),
+                json.dumps(test_db.db_host),
+                "--pwgo-db-name",
+                test_db.piwigo_db,
+                "--msg-db-name",
+                test_db.messaging_db,
+                "--rek-db-name",
+                test_db.rekognition_db,
                 "agent",
                 "--piwigo-galleries-host-path",
                 "/workspace",
@@ -241,7 +257,7 @@ class TestMetadataAgent:
                     move_img_logs = [ m.group(1) for m in move_img_logs if m ]
                     assert len(detect_faces_logs) == len(atag_bload_images)
                     assert len(move_img_logs) == len(atag_bload_images)
-                    async with test_db.acquire_dict_cursor(db="piwigo") as (cur,_):
+                    async with test_db.db_connection_pool.acquire_dict_cursor(db=test_db.piwigo_db) as (cur,_):
                         sql_ids_placeholders = ','.join(['%s' for x in atag_bload_images])
                         sql = f"""
                             SELECT id, file
@@ -257,7 +273,7 @@ class TestMetadataAgent:
 
                     # test handling of new face index image
                     img_id = 207
-                    async with test_db.acquire_dict_cursor(db="piwigo") as (cur,conn):
+                    async with test_db.db_connection_pool.acquire_dict_cursor(db=test_db.piwigo_db) as (cur,conn):
                         sql = """
                             INSERT INTO image_category (image_id, category_id)
                             VALUES (%s, %s)
@@ -316,11 +332,11 @@ class TestMetadataAgent:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", [{ "run_db_mods": False }], indirect=True)
-    async def test_db_init(self, capfd, test_db, db_cfg):
+    async def test_db_init(self, capfd, test_db: TestDbResult):
         """tests running db initialization at startup. this is just a bare
         bones test confirming that the init did indeed run"""
         with tempfile.TemporaryDirectory() as tmp_dir:
-            async with test_db.acquire_dict_cursor(db="piwigo") as (cur,_):
+            async with test_db.db_connection_pool.acquire_dict_cursor(db=test_db.piwigo_db) as (cur,_):
                 vfs_root_path = Path(tmp_dir).joinpath("vfs")
                 vfs_root_path.mkdir()
 
@@ -341,7 +357,13 @@ class TestMetadataAgent:
                     "DEBUG",
                     "--dry-run",
                     "--db-conn-json",
-                    json.dumps(db_cfg),
+                    json.dumps(test_db.db_host),
+                    "--pwgo-db-name",
+                    test_db.piwigo_db,
+                    "--msg-db-name",
+                    test_db.messaging_db,
+                    "--rek-db-name",
+                    test_db.rekognition_db,
                     "agent",
                     "--piwigo-galleries-host-path",
                     "/workspace",
@@ -372,10 +394,10 @@ class TestMetadataAgent:
                     assert len(db_init_logs) == 1
 
                     # verify table created by init now exists
-                    sql = """
+                    sql = f"""
                         SELECT COUNT(*) AS cnt
                         FROM information_schema.TABLES
-                        WHERE table_schema = 'piwigo' AND table_name = 'category_paths' 
+                        WHERE table_schema = '{test_db.piwigo_db}' AND table_name = 'category_paths' 
                     """
                     await cur.execute(sql)
                     res = await cur.fetchone()
@@ -390,7 +412,7 @@ class TestMetadataAgent:
                     agent_proc.terminate()
 
     @pytest.mark.asyncio
-    async def test_env_opts(self, capfd, test_db, db_cfg):
+    async def test_env_opts(self, capfd, test_db: TestDbResult):
         """tests that options are properly settable from environment"""
         with tempfile.TemporaryDirectory() as tmp_dir:
             vfs_root_path = Path(tmp_dir).joinpath("vfs")
@@ -400,7 +422,10 @@ class TestMetadataAgent:
             os.environ["PWGO_HLPR_LOG_LEVEL"] = "DEBUG"
             os.environ["PWGO_HLPR_AGENT_WORKERS"] = "17"
             os.environ["PWGO_HLPR_AGENT_INITIALIZE_DB"] = "True"
-            os.environ["PWGO_HLPR_DB_CONN_JSON"] = json.dumps(db_cfg)
+            os.environ["PWGO_HLPR_DB_CONN_JSON"] = json.dumps(test_db.db_host)
+            os.environ["PWGO_HLPR_PWGO_DB_NAME"] = test_db.piwigo_db
+            os.environ["PWGO_HLPR_MSG_DB_NAME"] = test_db.messaging_db
+            os.environ["PWGO_HLPR_REK_DB_NAME"] = test_db.rekognition_db
             os.environ["PWGO_HLPR_AGENT_REK_ACCESS_KEY"] = test_str
             os.environ["PWGO_HLPR_AGENT_REK_SECRET_ACCESS_KEY"] = test_str
             os.environ["PWGO_HLPR_AGENT_REK_COLLECTION_ARN"] = test_str

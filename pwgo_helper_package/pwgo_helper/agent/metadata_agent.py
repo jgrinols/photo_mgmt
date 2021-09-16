@@ -104,7 +104,7 @@ class MetadataAgent():
         blog_args = {
             "connection_settings": prg_cfg.db_config,
             "server_id": random.randint(100, 999999999),
-            "only_schemas": [prg_cfg.pwgo_db_name, agnt_cfg.msg_db],
+            "only_schemas": [prg_cfg.pwgo_db_name, prg_cfg.msg_db_name],
             "only_tables": agnt_cfg.event_tables.keys(),
             "only_events": [WriteRowsEvent],
             "blocking": False,
@@ -152,7 +152,8 @@ class MetadataAgent():
         """process any existing images that are waiting in the auto tag album
             and initialize the tags for any previously autotagged images"""
         self._logger.debug("processing any autotag backlog photos")
-        async with DbPool.get().acquire_dict_cursor(db=ProgramConfiguration.get().pwgo_db_name) as (cur, _):
+        pcfg = ProgramConfiguration.get()
+        async with DbPool.get().acquire_dict_cursor(db=pcfg.pwgo_db_name) as (cur, _):
             sql = """
                 SELECT i.id, i.file, i.path
                 FROM images i
@@ -175,13 +176,13 @@ class MetadataAgent():
             async with AutoTagger.create(img_id) as tagger:
                 await tagger.add_tags(tag_ids)
 
-        async with DbPool.get().acquire_dict_cursor(db=ProgramConfiguration.get().pwgo_db_name) as (cur, _):
+        async with DbPool.get().acquire_dict_cursor(db=pcfg.pwgo_db_name) as (cur, _):
             # initialize the tags for any previously autotagged images
             # this is in case a new tag has been added to the piwigo table
             # that matches one that was previously detected by rekognition
-            sql = """
+            sql = f"""
                 SELECT il.piwigo_image_id, t.id tag_id
-                FROM rekognition.image_labels il
+                FROM {pcfg.rek_db_name}.image_labels il
                 JOIN tags t
                 ON t.name = il.label
                 LEFT JOIN image_tag it
@@ -206,9 +207,6 @@ class MetadataAgent():
     help="""Host path of the piwigo gallieries folder. Can be any path that can be opened
     as a virtual filesystem by the fs package""",
     required=True,
-)
-@click.option(
-    "--rek-db-name",help="name of the rekognition database",type=str,required=False,default="rekognition"
 )
 @click.option(
     "--rek-access-key",help="rekognition aws access key",type=str,required=True,hide_input=True
