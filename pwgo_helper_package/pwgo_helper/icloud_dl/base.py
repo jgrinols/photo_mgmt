@@ -409,7 +409,7 @@ class ICDownloader:
                             new_dl_path = pre + ".MP4"
                             cmd = [
                                 "ffmpeg", "-i", download_path, "-vcodec", "libx264", "-tune", "film",
-                                "-movflags", "+faststart", new_dl_path
+                                "-movflags", "use_metadata_tags+faststart", new_dl_path
                             ]
                             try:
                                 subprocess.run(cmd, check=True)
