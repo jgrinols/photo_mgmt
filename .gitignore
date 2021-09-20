@@ -139,3 +139,5 @@ cython_debug/
 
 .local
 launch.json
+.vscode/*.env
+.tmp
