@@ -1,9 +1,0 @@
-pylint
-pytest
-pytest-asyncio
-pytest-integration
-pytest-cov
-pytest-mock
-imagehash
-pandas
-rope

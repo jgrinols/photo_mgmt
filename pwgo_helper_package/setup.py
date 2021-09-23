@@ -1,23 +1,42 @@
 """setuptools script"""
-import os
-
 from setuptools import setup, find_packages
-
-mod_path = os.path.dirname(os.path.abspath(__file__))
-
-with open(os.path.join(mod_path, "requirements.txt")) as f:
-    required = f.readlines()
-
-with open(os.path.join(mod_path, "dev_requirements.txt")) as f:
-    dev_extras = f.readlines()
 
 setup_args = {
     "name": "pwgo_helper",
     "version": "0.18.1",
     "packages": find_packages(),
-    "install_requires": required,
-    "extras_require": { "dev": dev_extras },
-    "entry_points": { "console_scripts": ["pwgo-helper = pwgo_helper.pwgo_helper:pwgo_helper_entry"] }
+    "install_requires": [
+        "python-dotenv",
+        "click",
+        "pymysql",
+        "asyncmy",
+        "mysql-replication",
+        "path",
+        "requests",
+        "beautifulsoup4",
+        "py-linq",
+        "aiobotocore",
+        "fs",
+        "pillow",
+        "pyexiv2",
+        "slack_sdk",
+        "pid",
+        "pyicloud"
+    ],
+    "extras_require": {
+        "dev": [
+            "pylint",
+            "pytest",
+            "pytest-asyncio",
+            "pytest-integration",
+            "pytest-cov",
+            "pytest-mock",
+            "imagehash",
+            "pandas",
+            "rope"
+        ]
+    },
+    "entry_points": { "console_scripts": ["pwgo-helper = pwgo_helper.pwgo_helper:pwgo_helper"] }
 }
 
 setup(**setup_args)
