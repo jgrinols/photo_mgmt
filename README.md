@@ -3,9 +3,9 @@ Piwigo Helper
 
 A set of command line utilities that add functionality and workflow automation to a [Piwigo](https://github.com/Piwigo/Piwigo) instance.
 The utilities include:
-* **Metadata Agent**: A daemon which monitors the Piwigo database for relevant changes and can perform action such as:
+* **Metadata Agent**: A daemon which monitors the Piwigo database for relevant changes and can perform actions such as:
   - Automatically tag photos based on subject matter and facial regonition using the [AWS Rekognition API](https://aws.amazon.com/rekognition/)
-  - Sync metadata that has been modified within Piwigo back the the physical files.
+  - Sync metadata that has been modified within Piwigo back to the physical files.
   - Maintain a virtual filesystem of symbolic links structured to mirror the albums within Piwigo.
 * **ICloud Downloader**: Automates downloading of new media items that have been uploaded to ICloud.
 * **Piwigo Sync**: Automates the process of adding newly downloaded media items to Piwigo (typically used in conjunction with ICloud Downloader).
