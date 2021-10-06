@@ -4,3 +4,5 @@ cd /workspace/pwgo_helper_package/pwgo_helper/docs \
     && rm -rf ./_build \
     && sphinx-build -M markdown . _build \
     && cp ./_build/markdown/README.md ../../../README.md
+
+git add -u /workspace/README.md
