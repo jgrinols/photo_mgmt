@@ -28,7 +28,8 @@ class Configuration:
         """initializes the Configuration singleton"""
         cfg = Configuration()
         cfg.initialization_args = kwargs
-        cfg.db_config = json.loads(kwargs["db_conn_json"])
+        if "db_conn_json" in kwargs and kwargs["db_conn_json"]:
+            cfg.db_config = json.loads(kwargs["db_conn_json"])
         for key, val in kwargs.items():
             if key == "log_level":
                 pwgo_logging.set_log_level(val)

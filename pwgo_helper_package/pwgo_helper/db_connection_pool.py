@@ -3,7 +3,8 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import Tuple
 
-from aiomysql import DictCursor,Connection,create_pool
+from asyncmy import Connection,create_pool
+from asyncmy.cursors import DictCursor
 
 class DbConnectionPool():
     """Provides a context manager compatible connection to the given database"""
@@ -37,9 +38,16 @@ class DbConnectionPool():
         DbConnectionPool.instance.__pool.close()
         await DbConnectionPool.instance.__pool.wait_closed()
 
+    async def acquire(self, **kwargs) -> Connection:
+        """gets a connection from the pool"""
+        conn = await self.__pool.acquire()
+        if "db" in kwargs:
+            await conn.select_db(kwargs["db"])
+        return conn
+
     @asynccontextmanager
     async def acquire_connection(self, **kwargs) -> Connection:
-        """gets a connection from the pool"""
+        """gets a context manager for a connection from the pool"""
         try:
             conn = await self.__pool.acquire()
             if "db" in kwargs:
@@ -55,12 +63,11 @@ class DbConnectionPool():
         conn = await self.__pool.acquire()
         if "db" in kwargs:
             await conn.select_db(kwargs["db"])
-        cur = await conn.cursor(DictCursor)
         try:
-            yield (cur,conn)
+            async with conn.cursor(cursor=DictCursor) as cur:
+                yield (cur,conn)
 
         finally:
-            await cur.close()
             await conn.ensure_closed()
             self.__pool.release(conn)
 

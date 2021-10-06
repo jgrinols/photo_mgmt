@@ -3,7 +3,7 @@ import asyncio,os,string,random
 from unittest.mock import MagicMock,patch
 
 import pytest
-from aiomysql.cursors import DictCursor
+from asyncmy.cursors import DictCursor
 
 from ...db_connection_pool import DbConnectionPool
 from ...agent.utilities import parse_sql

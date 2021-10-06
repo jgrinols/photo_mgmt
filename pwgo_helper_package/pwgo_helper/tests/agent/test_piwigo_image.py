@@ -102,6 +102,7 @@ class TestPiwigoImage:
         m_get_acfg.return_value = acfg
         mck_fetch = AsyncMock(side_effect=[test_file,test_mdata])
         mck_dict_cursor.fetchone = mck_fetch
+        mck_dict_cursor.execute = AsyncMock()
         pwgo_img = await PiwigoImage.create(1, load_metadata=True)
         assert pwgo_img.id == 1
         assert pwgo_img.file == test_file["file"]
