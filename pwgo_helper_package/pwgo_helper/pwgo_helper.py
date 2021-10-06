@@ -11,6 +11,7 @@ from .icloud_dl.base import main
 from .sync.main import sync_entry
 # pylint: disable=reimported
 from . import logging as pwgo_logging
+from .click import required_for_commands
 
 MODULE_BASE_PATH = os.path.dirname(__file__)
 logging.setLoggerClass(pwgo_logging.CustomLogger)
@@ -25,15 +26,16 @@ def _load_environment(_ctx, _opt, val):
             load_dotenv(dotenv_path=val, verbose=True)
     return val
 
-@click.group()
+@click.group(context_settings=dict(auto_envvar_prefix="PWGO_HLPR"))
 @click.option(
-    "--env-file",help="optional env file to use to setup environment",
+    "--env-file",help="The path to an environment file which will be loaded before other options are resolved",
     type=click.Path(dir_okay=False, exists=True),
     callback=_load_environment, is_eager=True
 )
 @click.option(
     "--db-conn-json", help="json string representing the database server connection parameters",
-    type=str, required=True, hide_input=True
+    type=str, hide_input=True,
+    cls=required_for_commands(["agent", "icdownload", "sync"])
 )
 @click.option(
     "--pwgo-db-name",help="name of the piwigo database",type=str,required=False,default="piwigo"
@@ -57,21 +59,25 @@ def _load_environment(_ctx, _opt, val):
     default="ERROR"
 )
 @click.option(
-    "--dry-run",
+    "--dry-run/--no-dry-run",
     help="don't actually do anything--just pretend",
     is_flag=True
 )
-def pwgo_helper(
-    **kwargs
-):
-    """the main pwgo_helper command entry point"""
+def pwgo_helper(**kwargs):
+    """The top-level command. Accepts parameters shared by all subcommands.
+
+    All options can be set via environment variables. The name of the environment
+    variable is the prefix ``PWGO_HLPR_`` followed by the parameter name in uppercase
+    and with hyphens replaced by underscores. For instance, the parameter ``--log-level``
+    can be set with an environment variable named ``PWGO_HLPR_LOG_LEVEL``.
+
+    This is also true for subcommand parameters. In this case, the environment variable name
+    includes the subcommand name. The ``--worker-error-limit`` option of the agent command
+    could be set by creating an environment variable ``PWGO_HLPR_AGENT_WORKER_ERROR_LIMIT``.
+    """
     Configuration.initialize(**kwargs)
     logger = Configuration.get().get_logger(__name__)
     logger.debug("Execeuting pwgo_helper command")
-
-def pwgo_helper_entry():
-    """console script entry point"""
-    pwgo_helper(auto_envvar_prefix="PWGO_HLPR")
 
 @click.command("version")
 def version():
