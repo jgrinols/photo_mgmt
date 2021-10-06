@@ -1,0 +1,4 @@
+#!/bin/bash
+
+pip3 --disable-pip-version-check --no-cache-dir install --editable ./pwgo_helper_package[dev]
+cp /workspace/.devcontainer/pre-commit.hook /workspace/.git/hooks/pre-commit && chmod +x /workspace/.git/hooks/pre-commit

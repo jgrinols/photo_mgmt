@@ -137,10 +137,7 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-.local
 launch.json
 .vscode/*.env
-.tmp
-
-# autogenerating requirements.txt
-requirements.txt
+.tmp/
+**/docs/_build/

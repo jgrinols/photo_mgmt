@@ -21,7 +21,7 @@ setup_args = {
         "pyexiv2",
         "slack_sdk",
         "pid",
-        "pyicloud"
+        "pyicloud @ git+https://github.com/jgrinols/pyicloud.git@master"
     ],
     "extras_require": {
         "dev": [
@@ -33,7 +33,11 @@ setup_args = {
             "pytest-mock",
             "imagehash",
             "pandas",
-            "rope"
+            "rope",
+            "sphinx",
+            "sphinx-click",
+            "sphinx-markdown-builder",
+            "myst-parser"
         ]
     },
     "entry_points": { "console_scripts": ["pwgo-helper = pwgo_helper.pwgo_helper:pwgo_helper"] }
