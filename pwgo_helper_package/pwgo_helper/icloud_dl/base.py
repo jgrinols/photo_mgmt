@@ -4,7 +4,7 @@ import os, sys, time, json, subprocess, itertools, asyncio
 from datetime import datetime, timedelta
 
 import click
-from pyicloud_ipd.exceptions import PyiCloudAPIResponseError
+from pyicloud.exceptions import PyiCloudAPIResponseException
 from pid import PidFile
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
@@ -183,7 +183,7 @@ class ICDownloader:
             # case exit.
             try:
                 photos = self.icloud.photos.albums[self.icdl_cfg.album]
-            except PyiCloudAPIResponseError:
+            except PyiCloudAPIResponseException:
                 # For later: come up with a nicer message to the user. For now take the
                 # exception text
                 logger.exception("error accessing icloud photo album %s", self.icdl_cfg.album)

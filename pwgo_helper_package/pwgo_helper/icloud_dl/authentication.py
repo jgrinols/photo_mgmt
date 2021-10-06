@@ -1,7 +1,7 @@
 """Handles username/password authentication and two-step authentication"""
 import sys, json, re, random, time
 
-import pyicloud_ipd
+import pyicloud
 from pymysqlreplication import BinLogStreamReader
 from pymysqlreplication.row_event import WriteRowsEvent
 
@@ -55,7 +55,7 @@ def authenticate(client_id=None):
     icdl_cfg = ICDLConfig.get()
     logger = prg_cfg.get_logger(__name__)
     logger.debug("Authenticating...")
-    icloud = pyicloud_ipd.PyiCloudService(
+    icloud = pyicloud.PyiCloudService(
         icdl_cfg.username, icdl_cfg.password,
         cookie_directory=icdl_cfg.cookie_directory,
         client_id=client_id)

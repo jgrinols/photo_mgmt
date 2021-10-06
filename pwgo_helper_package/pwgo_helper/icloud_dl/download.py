@@ -2,7 +2,7 @@
 import os, socket, time
 from tzlocal import get_localzone
 from requests.exceptions import ConnectionError  # pylint: disable=redefined-builtin
-from pyicloud_ipd.exceptions import PyiCloudAPIResponseError
+from pyicloud.exceptions import PyiCloudAPIResponseException
 
 from .config import Configuration as ICDLConfig
 from ..config import Configuration as ProgramConfig
@@ -55,7 +55,7 @@ def download_media(icloud, photo, download_path, size):
             logger.error("Could not find URL to download %s for size %s!", photo.filename, icdl_cfg.size)
             break
 
-        except (ConnectionError, socket.timeout, PyiCloudAPIResponseError) as ex:
+        except (ConnectionError, socket.timeout, PyiCloudAPIResponseException) as ex:
             if "Invalid global session" in str(ex):
                 logger.error("Session error, re-authenticating...")
                 if retries > 0:
