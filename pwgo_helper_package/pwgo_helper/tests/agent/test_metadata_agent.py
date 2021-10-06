@@ -341,10 +341,10 @@ class TestMetadataAgent:
                 vfs_root_path.mkdir()
 
                 # verify table created by init doesn't exist
-                sql = """
+                sql = f"""
                     SELECT COUNT(*) AS cnt
                     FROM information_schema.TABLES
-                    WHERE table_schema = 'piwigo' AND table_name = 'category_paths' 
+                    WHERE table_schema = '{test_db.piwigo_db}' AND table_name = 'category_paths'
                 """
                 await cur.execute(sql)
                 res = await cur.fetchone()
