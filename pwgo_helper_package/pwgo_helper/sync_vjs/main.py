@@ -75,23 +75,6 @@ def _sync_single(session: requests.Session):
 
     return sync_response, (time_end - time_start)
 
-def _get_pwg_token(session: requests.Session) -> str:
-    prg_cfg = ProgramConfig.get()
-    logger = prg_cfg.get_logger(__name__)
-    sync_cfg = SyncConfig.get()
-
-    logger.info("retrieving pwg token")
-    token_url = urljoin(prg_cfg.base_url, sync_cfg.admin_path)
-    token_params = { "page": "batch_manager" }
-    token_response = session.get(token_url, params=token_params)
-
-    parsed_response = BeautifulSoup(token_response.text, "html.parser")
-    token_input = parsed_response.find("input", { "name": "pwg_token" })
-    if token_input:
-        return token_input.get("value")
-    else:
-        raise RuntimeError("error retrieving pwg token")
-
 async def sync():
     """execute the sync operation"""
     prg_cfg = ProgramConfig.get()
