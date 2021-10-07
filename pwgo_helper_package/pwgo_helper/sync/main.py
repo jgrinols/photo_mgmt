@@ -187,7 +187,7 @@ async def sync():
     help="should synced files be added to the caddie"
 )
 @click.option(
-    "--add-missing-md5/--no-add-missing-md5", is_flag=True, default=True
+    "--add-missing-md5/--no-add-missing-md5", is_flag=True, default=True,
     help="should md5 hashes be computed for any photos where they're missing"
 )
 @click.option(
