@@ -8,24 +8,18 @@ from ..config import Configuration as ProgramConfig
 class Configuration():
     """Contains program constants, read-only, and configuration values"""
     instance: Configuration = None
-    privacy_level_map = {
-        "All": 0, "Contacts": 1, "Friends": 2, "Family": 4, "Admins": 8
-    }
 
     def __init__(self):
-        self.service_path = "ws.php"
         self.admin_path = "admin.php"
+        self.service_path = "ws.php"
 
         self.initialization_args: dict = None
         self.user: str = None
         self.password: str = None
         self.sync_album_id: int = None
         self.sync_metadata: bool = True
-        self.privacy_level: int = 8
-        self.directories_only: bool = False
-        self.add_to_caddie: bool = True
-        self.add_missing_md5: bool = True
-        self.md5_block_size: int = 1
+        self.create_thumbnail: bool = True
+        self.process_existing: bool = False
 
     @staticmethod
     def get() -> Configuration:
@@ -44,8 +38,6 @@ class Configuration():
         cfg.initialization_args = kwargs
 
         for key, val in kwargs.items():
-            if key == "file_access_level":
-                cfg.privacy_level = Configuration.privacy_level_map[val]
             if hasattr(cfg, key):
                 setattr(cfg, key, val)
 
@@ -60,6 +52,6 @@ class Configuration():
                     show_val = "OMITTED"
             else:
                 show_val = "OMITTED"
-            logger.debug("initializing sync config with %s=%s", key, show_val)
+            logger.debug("initializing sync-vjs config with %s=%s", key, show_val)
 
         Configuration.instance = cfg

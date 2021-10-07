@@ -63,6 +63,10 @@ def _load_environment(_ctx, _opt, val):
     help="don't actually do anything--just pretend",
     is_flag=True
 )
+@click.option(
+    "--base-url", cls=required_for_commands(["sync", "sync-vjs"]),
+    help="Url specifiying the web root of the Piwigo installation"
+)
 def pwgo_helper(**kwargs):
     """The top-level command. Accepts parameters shared by all subcommands.
 

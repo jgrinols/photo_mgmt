@@ -65,6 +65,7 @@ class Configuration:
         self.pwgo_db_name = "piwigo"
         self.msg_db_name = "messaging"
         self.rek_db_name = "rekognition"
+        self.base_url = None
         self.piwigo_db_scripts = PiwigoScripts()
         self.rekognition_db_scripts = RekognitionScripts()
 
