@@ -353,6 +353,38 @@ should md5 hashes be computed for any photos where they’re missing
 ### --md5-block-size( <md5_block_size>)
 **Required** number of hashes to compute per request
 
+#### sync-vjs
+
+```
+pwgo-helper sync-vjs [OPTIONS]
+```
+
+### Options
+
+
+### -u(, --user( <user>)
+**Required** Admin user to use to login and execute synchronization
+
+
+### -p(, --password( <password>)
+**Required** User password
+
+
+### --sync-album-id( <sync_album_id>)
+Id of an album to synchronize (default: sync all)
+
+
+### --sync-metadata(, --no-sync-metadata()
+Sync file metadata to the Piwigo database
+
+
+### --create-thumbnail(, --no-create-thumbnail()
+Generate a thumbnail image
+
+
+### --process-existing(, --no-process-existing()
+Peform sync for all video files–not just new files
+
 #### version
 
 outputs the pwgo-helper version

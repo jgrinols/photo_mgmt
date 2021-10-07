@@ -9,6 +9,7 @@ from .config import Configuration
 from .agent.metadata_agent import agent_entry
 from .icloud_dl.base import main
 from .sync.main import sync_entry
+from .sync_vjs.main import sync_entry as sync_vjs_entry
 # pylint: disable=reimported
 from . import logging as pwgo_logging
 from .click import required_for_commands
@@ -92,3 +93,4 @@ pwgo_helper.add_command(version)
 pwgo_helper.add_command(agent_entry)
 pwgo_helper.add_command(main)
 pwgo_helper.add_command(sync_entry)
+pwgo_helper.add_command(sync_vjs_entry)
