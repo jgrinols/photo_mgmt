@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup_args = {
     "name": "pwgo_helper",
-    "version": "0.19.3",
+    "version": "0.19.4",
     "packages": find_packages(),
     "install_requires": [
         "python-dotenv",
