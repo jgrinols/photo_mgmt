@@ -71,7 +71,7 @@ class Configuration():
         async with DbConnectionPool.get().acquire_dict_cursor(db=pcfg.pwgo_db_name) as (cur, _):
             sql = f"""
                 SELECT c.id
-                FROM {pcfg.pwgo_db_name}.categories c
+                FROM `{pcfg.pwgo_db_name}`.categories c
                 WHERE c.id_uppercat = %s
                     AND c.name NOT LIKE '%s'
             """

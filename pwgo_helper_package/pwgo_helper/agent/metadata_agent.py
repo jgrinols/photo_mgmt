@@ -177,7 +177,7 @@ class MetadataAgent():
             # that matches one that was previously detected by rekognition
             sql = f"""
                 SELECT il.piwigo_image_id, t.id tag_id
-                FROM {pcfg.rek_db_name}.image_labels il
+                FROM `{pcfg.rek_db_name}`.image_labels il
                 JOIN tags t
                 ON t.name = il.label
                 LEFT JOIN image_tag it

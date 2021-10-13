@@ -54,7 +54,7 @@ class AutoTagger():
         async with DbConnectionPool.get().acquire_dict_cursor(db=cfg.pwgo_db_name) as (cur,_):
             sql = f"""
                 SELECT 1
-                FROM {cfg.pwgo_db_name}.image_category
+                FROM `{cfg.pwgo_db_name}`.image_category
                 WHERE image_id = %s AND category_id = %s
             """
             await cur.execute(sql, (self.image.id, AgentConfig.get().auto_tag_proc_alb))
@@ -180,7 +180,7 @@ class AutoTagger():
             async with db_cn_ctx.acquire_dict_cursor(db=pcfg.rek_db_name) as (cur,conn):
                 sql = f"""
                     SELECT face_details
-                    FROM {pcfg.rek_db_name}.processed_faces
+                    FROM `{pcfg.rek_db_name}`.processed_faces
                     WHERE piwigo_image_id = %s
                 """
 
@@ -265,7 +265,7 @@ class AutoTagger():
             async with db_cn_ctx.acquire_dict_cursor(db=pcfg.rek_db_name) as (cur,conn):
                 sql = f"""
                     SELECT label
-                    FROM {pcfg.rek_db_name}.image_labels
+                    FROM `{pcfg.rek_db_name}`.image_labels
                     WHERE piwigo_image_id = %s and confidence >= %s
                 """
 
@@ -334,7 +334,7 @@ class AutoTagger():
                 faces = await rek_client.remove_indexed_faces(face_ids)
 
                 sql = f"""
-                    DELETE FROM {pcfg.rek_db_name}.indexed_faces
+                    DELETE FROM `{pcfg.rek_db_name}`.indexed_faces
                     WHERE face_id IN (%s)
                 """
                 fmt_strings = ','.join(['%s'] * len(face_ids))
@@ -368,10 +368,10 @@ class AutoTagger():
                     , c.id category_id
                     , i.file
                     , i.`path`
-                FROM {pcfg.pwgo_db_name}.images i
-                JOIN {pcfg.pwgo_db_name}.image_category ic
+                FROM `{pcfg.pwgo_db_name}`.images i
+                JOIN `{pcfg.pwgo_db_name}`.image_category ic
                 ON ic.image_id = i.id
-                JOIN {pcfg.pwgo_db_name}.categories c
+                JOIN `{pcfg.pwgo_db_name}`.categories c
                 ON c.id = ic.category_id
                 WHERE c.id IN (%s)
             """
@@ -417,7 +417,7 @@ class AutoTagger():
             sql = f"""
                 SELECT il.piwigo_image_id
                 FROM image_labels il
-                JOIN {pcfg.pwgo_db_name}.tags t
+                JOIN `{pcfg.pwgo_db_name}`.tags t
                 ON t.name = il.label
                 WHERE t.id = %s AND il.confidence >= %s
             """
