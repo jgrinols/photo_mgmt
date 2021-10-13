@@ -5,8 +5,9 @@ from asyncio.futures import Future
 
 import click
 from pwgo_helper.agent.image_virtual_path_event_task import ImageVirtualPathEventTask
-from pymysqlreplication import BinLogStreamReader
-from pymysqlreplication.row_event import WriteRowsEvent
+from asyncmy import connect
+from asyncmy.replication import BinLogStream
+from asyncmy.replication.row_events import WriteRowsEvent
 from py_linq import Enumerable
 
 from . import strings
@@ -78,7 +79,7 @@ class MetadataAgent():
                 self._stopping_task = asyncio.tasks.current_task()
                 self._stopping_task.set_name(strings.AGNT_STOP_TASK_NM)
             if self._evt_monitor_task and not self._evt_monitor_task.done():
-                self._evt_monitor_task.request_cancel = True
+                self._evt_monitor_task.cancel()
             if self._evt_dispatcher and self._evt_dispatcher.state == "RUNNING":
                 stop_dispatch_task = asyncio.create_task(self._evt_dispatcher.stop(force=force))
                 stop_dispatch_task.set_name(strings.DSPCH_STOP_TASK_NM)
@@ -102,27 +103,25 @@ class MetadataAgent():
         self._logger.info("Monitoring %s for metadata changes", prg_cfg.pwgo_db_name)
 
         blog_args = {
-            "connection_settings": prg_cfg.db_config,
+            "connection": await connect(**prg_cfg.db_config),
+            "ctl_connection": await connect(**prg_cfg.db_config),
             "server_id": random.randint(100, 999999999),
-            "only_schemas": [prg_cfg.pwgo_db_name, prg_cfg.msg_db_name],
             "only_tables": agnt_cfg.event_tables.keys(),
             "only_events": [WriteRowsEvent],
-            "blocking": False,
+            "blocking": True,
             "resume_stream": True,
         }
-        self._binlog_stream = BinLogStreamReader(**blog_args)
+        self._binlog_stream = BinLogStream(**blog_args)
 
         mon_task = asyncio.create_task(self._event_monitor())
         mon_task.set_name("agent-event-monitor")
-        mon_task.request_cancel = False
         await asyncio.sleep(0)
         return mon_task
 
     async def _event_monitor(self):
-        task = asyncio.tasks.current_task()
-        while not task.request_cancel:
+        async for evt in self._binlog_stream:
             if self._evt_dispatcher.state == "STOPPED":
-                self._logger.info("event dispatched is stopped. stopping event monitor.")
+                self._logger.info("event dispatcher is stopped. stopping event monitor.")
                 try:
                     _ = self._evt_dispatcher.get_results()
                 # pylint: disable=broad-except
@@ -132,21 +131,17 @@ class MetadataAgent():
                     self._stopping_task = asyncio.create_task(self.stop(force=True))
                     self._stopping_task.set_name(strings.AGNT_STOP_TASK_NM)
                     raise RuntimeError("dispatcher is not running...stopping metadata agent")
+            if self._evt_dispatcher.state == "RUNNING":
+                self._logger.debug("Processing %s on %s affecting %s rows"
+                    , type(evt).__name__, evt.table, len(evt.rows)
+                )
 
-            for evt in self._binlog_stream:
-                if self._evt_dispatcher.state == "RUNNING":
-                    self._logger.debug("Processing %s on %s affecting %s rows"
-                        , type(evt).__name__, evt.table, len(evt.rows)
-                    )
+                for row in evt.rows:
+                    await self._evt_dispatcher.queue_event(row)
 
-                    for row in evt.rows:
-                        await self._evt_dispatcher.queue_event(row)
-
-                    self._logger.debug("Event queued...listening for new events")
-                else:
-                    self._logger.debug("dispatcher is not running. ignoring event.")
-
-            await asyncio.sleep(.1)
+                self._logger.debug("Event queued...listening for new events")
+            else:
+                self._logger.debug("dispatcher is not running. ignoring event.")
 
     async def process_autotag_backlog(self):
         """process any existing images that are waiting in the auto tag album

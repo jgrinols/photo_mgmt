@@ -7,8 +7,8 @@ from contextlib import ExitStack
 
 import pytest
 from path import Path
-from pymysqlreplication import BinLogStreamReader
-from pymysqlreplication.row_event import WriteRowsEvent
+from asyncmy.replication import BinLogStream
+from asyncmy.replication.row_events import WriteRowsEvent
 
 from ...agent.metadata_agent import MetadataAgent
 from ...config import Configuration as ProgramConfig
@@ -37,8 +37,6 @@ class TestMetadataAgent:
             await asyncio.sleep(2)
 
         mck_atag.sync_face_index = mck_sync_face_idx
-        acfg = AgentConfig()
-        acfg.workers = 2
         pcfg_params = {
             "db_conn_json": json.dumps(test_db.db_host),
             "pwgo_db_name": test_db.piwigo_db,
@@ -46,6 +44,8 @@ class TestMetadataAgent:
             "rek_db_name": test_db.rekognition_db
         }
         ProgramConfig.initialize(**pcfg_params)
+        acfg = AgentConfig()
+        acfg.workers = 2
         m_get_acfg.return_value = acfg
         with tempfile.TemporaryDirectory() as tmp_dir:
             vfs_root_path = Path(tmp_dir).joinpath("vfs")
@@ -89,8 +89,6 @@ class TestMetadataAgent:
             await asyncio.sleep(proc_time)
 
         m_atag.sync_face_index = mck_sync_face_idx
-        acfg = AgentConfig()
-        acfg.workers = 2
         pcfg_params = {
             "db_conn_json": json.dumps(test_db.db_host),
             "pwgo_db_name": test_db.piwigo_db,
@@ -98,6 +96,8 @@ class TestMetadataAgent:
             "rek_db_name": test_db.rekognition_db
         }
         ProgramConfig.initialize(**pcfg_params)
+        acfg = AgentConfig()
+        acfg.workers = 2
         m_get_acfg.return_value = acfg
         with tempfile.TemporaryDirectory() as tmp_dir:
             vfs_root_path = Path(tmp_dir).joinpath("vfs")
@@ -534,16 +534,20 @@ class TestMetadataAgent:
             await asyncio.sleep(.1)
 
         evts = [mck_write_evt1, mck_write_evt2, mck_write_evt3]
-        def bstrm_iter(_):
+        def bstrm_iter(bstrm):
+            return bstrm
+        async def bstrm_next(_):
             nonlocal evts
-            try:
-                return iter([evts.pop(0)])
-            except IndexError:
-                return iter(())
+            await asyncio.sleep(0)
+            if evts:
+                return evts.pop(0)
+            else:
+                raise StopAsyncIteration
 
         with ExitStack() as stack:
-            mck_bstrm = stack.enter_context(patch.object(agent, "_binlog_stream", spec=BinLogStreamReader))
-            mck_bstrm.__iter__ = bstrm_iter
+            mck_bstrm = stack.enter_context(patch.object(agent, "_binlog_stream", spec=BinLogStream))
+            mck_bstrm.__aiter__ = bstrm_iter
+            mck_bstrm.__anext__ = bstrm_next
             _ = stack.enter_context(patch.object(agent, "_start_event_monitor", new=mck_start_evt_mon))
             _ = stack.enter_context(
                 patch.object(ImageMetadataEventTask, "_handle_events", new=handle_evts))

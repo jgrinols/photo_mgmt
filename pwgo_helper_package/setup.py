@@ -3,14 +3,13 @@ from setuptools import setup, find_packages
 
 setup_args = {
     "name": "pwgo_helper",
-    "version": "0.19.4",
+    "version": "0.19.5",
     "packages": find_packages(),
     "install_requires": [
         "python-dotenv",
         "click",
         "pymysql",
         "asyncmy",
-        "mysql-replication",
         "path",
         "requests",
         "beautifulsoup4",

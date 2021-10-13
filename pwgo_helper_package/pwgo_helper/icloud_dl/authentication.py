@@ -1,55 +1,49 @@
 """Handles username/password authentication and two-step authentication"""
-import sys, json, re, random, time
+import sys, json, re, random, asyncio
 
 import pyicloud
-from pymysqlreplication import BinLogStreamReader
-from pymysqlreplication.row_event import WriteRowsEvent
+from asyncmy import connect
+from asyncmy.replication import BinLogStream
+from asyncmy.replication.row_events import WriteRowsEvent
 
 from ..config import Configuration as ProgramConfig
 from .config import Configuration as ICDLConfig
 
-def wait_for_mfa_code():
+async def wait_for_mfa_code():
     """setup a stream reader to wait for the mfa code sent
     to messaging db"""
     prg_cfg = ProgramConfig.get()
     icdl_cfg = ICDLConfig.get()
     logger = prg_cfg.get_logger(__name__)
-    code = None
-    stream = BinLogStreamReader(
-        connection_settings = prg_cfg.db_config,
+    stream = BinLogStream(
+        connection = await connect(**prg_cfg.db_config),
+        ctl_connection = await connect(**prg_cfg.db_config),
         server_id = random.randint(100, 999999999),
-        only_schemas = icdl_cfg.auth_msg_db,
-        only_tables = icdl_cfg.auth_msg_tbl,
+        only_tables = f"{icdl_cfg.auth_msg_db}.{icdl_cfg.auth_msg_tbl}",
         only_events = [WriteRowsEvent],
-        blocking = False,
+        blocking = True,
         resume_stream = True
     )
 
-    start_time = time.time()
-    while True:
-        for event in stream:
-            for row in event.rows:
-                logger.info("message")
-                escaped_msg = row["values"]["message"].encode('unicode-escape')
-                msg_obj = json.loads(escaped_msg)
-                logger.info("checking for verification code")
-                match = re.search(r'.*:\s*(\d{6})[^\d]'
-                    , msg_obj["Message"]["Body"]
-                    , re.IGNORECASE | re.MULTILINE)
-                if match:
-                    code = match.group(1)
-                    logger.debug("found verification code")
-                    stream.close()
+    async for event in stream:
+        for row in event.rows:
+            logger.info("message")
+            escaped_msg = row["values"]["message"].encode('unicode-escape')
+            msg_obj = json.loads(escaped_msg)
+            logger.info("checking for verification code")
+            match = re.search(r'.*:\s*(\d{6})[^\d]'
+                , msg_obj["Message"]["Body"]
+                , re.IGNORECASE | re.MULTILINE)
+            if match:
+                code = match.group(1)
+                logger.debug("found verification code")
+                stream.close()
 
-                    return code
-                else:
-                    logger.warning("unable to find verification code in message. waiting...")
-        time.sleep(.1)
-        if time.time() - start_time > icdl_cfg.mfa_timeout:
-            raise TimeoutError("did not receive mfa token during specified timeout period.")
+                return code
 
+            logger.warning("unable to find verification code in message. waiting...")
 
-def authenticate(client_id=None):
+async def authenticate(client_id=None):
     """Authenticate with iCloud username and password"""
     prg_cfg = ProgramConfig.get()
     icdl_cfg = ICDLConfig.get()
@@ -62,11 +56,10 @@ def authenticate(client_id=None):
 
     if icloud.requires_2sa:
         logger.info("Two-step/two-factor authentication is required!")
-        request_mfa_code(icloud)
+        await request_mfa_code(icloud)
     return icloud
 
-
-def request_mfa_code(icloud):
+async def request_mfa_code(icloud):
     """Request two-step authentication. Prompts for SMS or device"""
     prg_cfg = ProgramConfig.get()
     icdl_cfg = ICDLConfig.get()
@@ -86,6 +79,9 @@ def request_mfa_code(icloud):
             logger.error("Failed to send two-factor authentication code")
             sys.exit(1)
 
-    code = wait_for_mfa_code()
+    try:
+        code = await asyncio.wait_for(wait_for_mfa_code(), icdl_cfg.mfa_timeout)
+    except asyncio.TimeoutError as err:
+        raise TimeoutError("Failed to receive two-factor authentication code within timeout period") from err
     if not icloud.validate_verification_code(device, code):
         raise RuntimeError("Failed to verify two-factor authentication code")

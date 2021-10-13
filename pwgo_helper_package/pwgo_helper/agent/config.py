@@ -12,7 +12,7 @@ class Configuration():
 
     def __init__(self):
         self.pwgo_gallery_virt_path = Path("/config/www/gallery")
-        self.event_tables = { "pwgo_message": {} }
+        self.event_tables = { f"{ProgramConfig.get().msg_db_name}.pwgo_message": {} }
         self.auto_tag_alb = 125
         self.auto_tag_proc_alb = 126
         self.face_idx_parent_alb = 128
