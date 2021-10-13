@@ -171,7 +171,7 @@ class ICDownloader:
 
         asyncio.current_task().set_name("run-downloader")
         logger.info("authenticating to icloud")
-        self.icloud = authenticate(client_id=os.environ.get("CLIENT_ID"))
+        self.icloud = await authenticate(client_id=os.environ.get("CLIENT_ID"))
 
         logger.debug("initializing database connection pool...")
         async with DbConnectionPool.initialize(**self.prg_cfg.db_config) as db_pool:
