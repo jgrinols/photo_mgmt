@@ -44,8 +44,9 @@ def mck_dict_cursor():
 async def test_db(request):
     """sets up test database and configures the DbConnectionPool instance"""
     db_cfg = {
-        "host": "mariadb",
-        "port": 3306,
+        #"host": "mariadb",
+        #"port": 3306,
+        "unix_socket": "/var/run/mysqld/mysqld.sock",
         "user": "root",
         "password": "vscode"
     }

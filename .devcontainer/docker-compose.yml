@@ -1,5 +1,8 @@
 version: '3.7'
 
+volumes:
+  mysqld:
+
 services:
     app:
         build:
@@ -8,6 +11,7 @@ services:
         container_name: dev-env
         volumes:
             - ..:/workspace
+            - mysqld:/var/run/mysqld
         user: vscode
         command: sleep infinity
 
@@ -18,5 +22,7 @@ services:
            - 3306:3306
         environment:
             MYSQL_ROOT_PASSWORD: vscode
+        volumes:
+            - mysqld:/var/run/mysqld
         command: mysqld --log-bin --binlog-format=ROW --server-id=1
         restart: unless-stopped
